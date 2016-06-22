@@ -2,8 +2,8 @@
 #define getToken(senderKey, recipient, saltrand) "jasx$"
 #include "xobj_core/_ROOT.lsl"
 
-
-#define BRIDGE_URL "http://jasx.org/bridge2.php"
+#include "./classes/jx Bridge.lsl"
+#include "./classes/jx RLV.lsl"
 
 
 #define PENIS 1

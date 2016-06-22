@@ -47,6 +47,13 @@ default
         // Hide
         toggleBrowser(FALSE);
         
+		// Build a DB schema
+		list tables = [
+			"jx RLV",
+			"jx Bridge"
+		];
+		db3$addTables(tables);
+		
         llSetLinkMedia(P_BROWSER, 1, [
             PRIM_MEDIA_AUTO_PLAY, TRUE,
             PRIM_MEDIA_CONTROLS, PRIM_MEDIA_CONTROLS_MINI,
@@ -58,6 +65,8 @@ default
             PRIM_MEDIA_PERMS_CONTROL, PRIM_MEDIA_PERM_OWNER,
             PRIM_MEDIA_PERMS_INTERACT, PRIM_MEDIA_PERM_OWNER
         ]);
+		
+		resetAllOthers();
     }
     
     touch_start(integer total){
@@ -87,7 +96,11 @@ default
     */ 
     
     // Here's where you receive callbacks from running methods
-    if(method$isCallback){
+	if(method$isCallback){
+		// DB tables created
+		if(id == "" && SENDER_SCRIPT == "#ROOT" && METHOD == stdMethod$setShared){
+			resetAllOthers();
+		}
         return;
     }
     
