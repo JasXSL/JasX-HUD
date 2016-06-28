@@ -27,7 +27,7 @@
 #define BridgeShared$USER_DATA "a"	//
 
 
-#define userData(data) db3$get("jx Bridge", ([BridgeShared$USER_DATA])) 
+#define userData() db3$get("jx Bridge", ([BridgeShared$USER_DATA])) 
 	
 #define BridgeShared$HUD_ALERTS "b"	// Contains a JSON object with the following keys and an integer
 	#define BSHA$inventory "inv"
