@@ -98,3 +98,41 @@ settings:{
   "species":(int)species
 }
 </pre>
+
+# Bridge shared vars
+jx Bridge has a userdata object that other scripts in the linkset can read:
+<pre>
+userData()
+OR 
+db3$get("jx Bridge", ([BridgeShared$USER_DATA])) 
+</pre>
+
+This object consists of the following data:
+| Key   | Type | Data           |
+| --- |---| --- |
+| id | int | JasX User ID |
+| username | str | JasX Username |
+| accountstatus | int | Will be 1 for all non admins |
+| signupdate | str | Date the user signed up |
+| avatar | str | JasX Avatar, located in http://jasx.org/media/avatars/ |
+| fullname | str | Full username including title |
+| bitflags | int | Settings. 2 = Credit terms accepted, 4 = hidden |
+| last_lfp | int | Unix timestamp of last LFP refresh |
+| sex | int | Standard sex bitwise. 1 = Penis, 2 = Vagina, 4 = Breasts |
+| species | int | id of avatar type. 1 = human, 2 = amine, 3 = furry, 4 = other, 0 = undefined |
+| lfp_for | array | List of game IDs you are looking to play. See the URLs at jasx.org game pages for the ID |
+| games_owned | array | List of IDs of games owned |
+| charname | str | SL character name |
+| currenttitle | int | Current title ID number |
+| flist | str | Active F-List.net character |
+| outfit | str | Current JasX outfit name |
+| spname | str | Avatar type name |
+| credits | int | JXC |
+| _new_inv | int | Nr unseen inventory items |
+| _new_mail | int | New unseen messages |
+| charkey | key | Character UUID |
+| email | str | Email address |
+| _link_req | obj | Info about an active link request |
+
+
+
