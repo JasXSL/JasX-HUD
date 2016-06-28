@@ -108,7 +108,8 @@ db3$get("jx Bridge", ([BridgeShared$USER_DATA]))
 </pre>
 
 This object consists of the following data:
-| Key   | Type | Data           |
+
+| Key   | Type | Data  |
 | --- |---| --- |
 | id | int | JasX User ID |
 | username | str | JasX Username |
