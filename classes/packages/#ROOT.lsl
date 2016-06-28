@@ -66,7 +66,7 @@ default
             PRIM_MEDIA_PERMS_INTERACT, PRIM_MEDIA_PERM_OWNER
         ]);
 		
-		resetAllOthers();
+		memLim(1.5);
     }
     
     touch_start(integer total){
