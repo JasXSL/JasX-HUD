@@ -1,26 +1,17 @@
 // JASX API PREPROCESSOR DEFINITIONS
-/*
-	
-	0. Hit Ctrl+S to save this file - Put it in a directory for LSL files
-	1. Use Firestorm viewer
-	2. Open a script and click the cogs icon
-	3. Check enable LSL preprocessor, Script optimizer and #includes from local disk
-	4. Navigate the include path to where you put this file
-	5. Click OK and re-open your script window.
-	6. You should be able to #include "jasxAPI.lsl"
 
-*/
-
+// IN/Out objects
 // Keys for sendAPI
-#define API_TASKS "t"
-#define API_KEY "k"
-#define API_MESSAGES "m"
+#define API_TASKS "t"				// (IN/OUT) Array of tasks to send or callbacks for tasks
+#define API_KEY "k"					// (IN) API key is required to authenticate a user
+#define API_MESSAGES "m"			// (OUT) Array of Error messages and such
 
+// Task objects
 // Keys for tasks
-#define API_TASK "t"
-#define API_DATA "d"
-#define API_CALLBACK "c"
-#define API_STATUS "s"
+#define API_TASK "t"						// (int)ID of task to send
+#define API_DATA "d"						// (var)data to send
+#define API_CALLBACK "c"					// (var)callback that will be returned
+#define API_STATUS "s"						// (OUT) (int)code - Status code detailing if the call was successful or not
 	#define STATUS_FAIL_DATA_MISSING -2
 	#define STATUS_FAIL_ACCESS_DENIED -1
 	#define STATUS_FAIL_GENERAL 0
@@ -41,24 +32,25 @@
 	
 	
 /* 		TRIGGER A GAME ACTION		*/
-#define API_GAME_ACTION 2
+#define API_GAME_ACTION 2				
 	#define ACTION_GAME "a"
-		#define GAME_TIS "a"
-		#define GAME_SNC "b"
-		#define GAME_JFISH "c"
-		#define GAME_FRIGHT "d"
-		#define GAME_BARE "e"
-		#define GAME_JASX "f"	// Not really a game, but needed for news
-		#define GAME_DOGEHUD "g"
-		#define GAME_WOOHOO "h"
-	#define ACTION_TASK "b"
-	#define ACTION_DATA "c"
+		#define GAME_TIS 1
+		#define GAME_SNC 2
+		#define GAME_JFISH 3
+		#define GAME_FRIGHT 4
+		#define GAME_BARE 5
+		#define GAME_JASX 6	// Not really a game, but needed for news
+		#define GAME_WOOHOO 7
+		#define GAME_GOT 9
+		
+	#define ACTION_TASK "b"			// (int)task, See below
+	#define ACTION_DATA "c"			// (var)data, see below
 
 	
 	
 	
 // ACTION_TASKs for above (JASX)
-#define JASX_SET_CONF 0			// (int)bitfield - (int)bitfield_after
+#define JASX_SET_CONF 0				// (int)bitfield - (int)bitfield_after
 #define JASX_SET_SEX 1				// (int)sex - (int)sex_after
 	#define SEX_UNDEFINED 0
 	#define SEX_MALE 1
