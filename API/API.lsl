@@ -91,7 +91,7 @@
 
 
 
-string gameAction(string game, integer task, string data){
+string gameAction(integer game, integer task, string data){
 	return llList2Json(JSON_OBJECT, [
 		ACTION_GAME, game,
 		ACTION_TASK, task,
