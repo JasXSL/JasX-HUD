@@ -3,6 +3,7 @@
 #define BridgeMethod$linkAccount 3						// (str)name
 #define BridgeMethod$updateClothes 4					// clothes - Updates socket with a list of RLV folders. Args are said folders
 #define BridgeMethod$resetPass 5						// void
+#define BridgeMethod$login 6							// void - Fetches a new login token and updates the prim media 
 #define BridgeMethod$outputStatus 10 					// void - Output status to plugins
 #define BridgeMethod$setSex 11							// (int)sex
 #define BridgeMethod$setSpecies 12						// (int)species 
@@ -20,6 +21,7 @@
 #define Bridge$setSex(sex) runMethod((string)LINK_ROOT, "jx Bridge", BridgeMethod$setSex, [sex], TNN)
 #define Bridge$setSpecies(species) runMethod((string)LINK_ROOT, "jx Bridge", BridgeMethod$setSpecies, [species], TNN)
 #define Bridge$setFlist(character) runMethod((string)LINK_ROOT, "jx Bridge", BridgeMethod$setFlist, [character], TNN)
+#define Bridge$login() runMethod((str)LINK_ROOT, "jx Bridge", BridgeMethod$login, [], TNN)
 
 #define BridgeEvt$SOCKET_REFRESH 1	// void - Requests subscribts to send socket data
 #define BridgeEvt$DATA_CHANGED 2	// void - Userdata has changed

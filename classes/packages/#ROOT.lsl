@@ -6,6 +6,7 @@ integer BFL;
 
 integer P_BUTTON;
 integer P_BROWSER;
+integer P_CONF;
 vector BROWSER_POS = <0.516400, 0.064820, 0.633541>;
 
 
@@ -42,6 +43,8 @@ default
                 P_BUTTON = nr;
             else if(name == "BROWSER")
                 P_BROWSER = nr;
+			else if(name == "CONF")
+				P_CONF = nr;
         )
                 
         // Hide
@@ -82,7 +85,8 @@ default
             face == 3 || face == 2
         ))
             toggleBrowser(FALSE);
-        
+        if(ln == P_CONF)
+			RLV$dialog();
     }
     
     // This is the standard linkmessages

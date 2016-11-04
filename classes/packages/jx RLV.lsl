@@ -20,6 +20,7 @@
 // Not sure why I need 2 channels?
 integer CHAN;
 integer INV_CHAN;
+integer DIAG_CHAN;
 
 // Active folder from config
 string rootfolder;
@@ -84,14 +85,13 @@ onEvt(string script, integer evt, list data){
 // Changes the root folder
 setRootFolder(string n){
     string pre = rootfolder;
-    
     // If n is set, use that
     if(n)
         rootfolder = n;
     // Otherwise update from shared
-    else 
+    else{
         getRootFolder();
-        
+    }
     if(pre == rootfolder)return;
             
     llOwnerSay("@detachall:JasX/"+pre+"=force,attachallover:JasX/"+rootfolder+"/Avatar=force,attachallover:JasX/"+rootfolder+"/Dressed=force");
@@ -163,7 +163,18 @@ toggleClothes(string root, string sub){
     onOutfitChanged();
 }
 
+openDialog(){
+	string text = "Chat commands: Either channel 0 or /1:
+jasx.setoutfit <name> - Change your JasX outfit
 
+-- Buttons --
+Log In - Logs you into the prim media again
+Dressed/Underwear/Bits - Change your clothing state
+Pass Reset - Generates a random JasX login password for you";
+	list buttons = ["Dressed", "Underwear", "Bits","Log In", "Pass Reset"];
+	
+	llDialog(llGetOwner(), text, buttons, DIAG_CHAN);
+}
 
 default
 {
@@ -171,14 +182,16 @@ default
     {
         CHAN = llCeil(llFrand(0xFFFFFF));
         INV_CHAN = llCeil(llFrand(0xFFFFFF));
+		DIAG_CHAN = llCeil(llFrand(0xFFFFFFF));
         
         // These are channels for the user
         llListen(0, "", llGetOwner(), "");
         llListen(CLOTHING_CHAN, "", "", ""); 
         
         // These are channels for RLV
-        llListen(CHAN, "", llGetOwner(), "");       // RLV initialization
-        llListen(INV_CHAN, "", llGetOwner(), "");   // Folder data fetch
+        llListen(CHAN, "", llGetOwner(), "");       	// RLV initialization
+        llListen(INV_CHAN, "", llGetOwner(), "");   	// Folder data fetch
+        llListen(DIAG_CHAN, "", llGetOwner(), "");   	// Dialog popup
         
         // Fetch from root if possible
         getRootFolder();
@@ -187,6 +200,21 @@ default
     listen(integer chan, string name, key id, string message){
         idOwnerCheck
         
+		if(chan == DIAG_CHAN){
+			
+			if(message == "Log In"){
+				Bridge$login();
+			}
+			else if(message == "Pass Reset"){
+				llOwnerSay("Genereting a new password");
+				Bridge$resetPass();
+			}
+			else if(~llListFindList(["Dressed","Underwear","Bits"], [message])){
+				toggleClothes(message, "");
+			}
+			
+		}
+		
         // Inventory channel
         if(chan == INV_CHAN){
             // Folders fetched
@@ -204,6 +232,7 @@ default
             
             db3$set([RLVShared$RLV_FOLDERS], llList2Json(JSON_ARRAY, available_folders));
             Bridge$updateClothes(available_folders);
+			return;
         }
         
         
@@ -360,6 +389,9 @@ default
             toggleClothes(method_arg(0), method_arg(1));
         else if(METHOD == RLVMethod$recacheFolders)
             recacheClothes();
+		else if(METHOD == RLVMethod$dialog){
+			openDialog();
+		}
     }
     
 // End link message code
