@@ -8,7 +8,7 @@
 #define SUBFOLDERS ["dressed", "underwear", "bits"]
 
 // Subfolders
-#define SLOTFOLDERS ["head", "arms", "torso", "groin", "boots"]
+#define SLOTFOLDERS ["head", "arms", "[\"torso\",\"chest\"]", "[\"groin\",\"crotch\"]", "boots"]
 
 // Equipment slots
 #define SLOT_HEAD 0
@@ -54,8 +54,27 @@ integer BFL;
         "strapon", ((BFL&BFL_STRAPON)>0) \
     ]))
     
-    
-    
+
+// Searches slot folders and returns an index	
+integer findSlotFolder(string folder){
+	
+	list sf = SLOTFOLDERS;
+	folder = llToLower(folder);
+	
+	integer i;
+	for(i=0; i<count(sf); ++i){
+		
+		list scan = [l2s(sf, i)];
+		if(llJsonValueType(l2s(sf, i), []) == JSON_ARRAY)
+			scan = llJson2List(l2s(sf, i));
+			
+		if(~llListFindList(scan, [folder]))
+			return i;
+	}
+	
+	return -1;
+
+}
     
 onEvt(string script, integer evt, list data){
 
@@ -137,28 +156,38 @@ toggleClothes(string root, string sub){
     sub = llToLower(sub);
     if(root == "fully clothed")root = "dressed";
     if(sub == "chest")sub = "torso";
-    
-    string on = "attachallover:JasX/"+rootfolder+"/"+root+"/";
+	
+	
+	list sf = SUBFOLDERS;
+	list slotf = SLOTFOLDERS;
+	list subs = [sub];
+	integer pos = findSlotFolder(sub);
+	
+	if(~pos){
+		string s = l2s(slotf, pos);
+		if(llJsonValueType(s, []) == JSON_ARRAY){
+			subs = llJson2List(s);
+		}
+	}
+
+    list on;
     list off;
-    list sf = SUBFOLDERS;
     
     
-    list_each(sf, k, v, {
-        if(v != root)off+="detachall:JasX/"+rootfolder+"/"+v+"/";
-    });
-                    
-    if(isset(sub)){
-        on += sub;
-        list_each(off, k, v, {
-            off=llListReplaceList(off, [v+sub], k, k);
-        });
-        
-    }
     
-    toggleSlot(root, llListFindList(SLOTFOLDERS, [sub]));
+	list_shift_each(subs, s,
+		on += "attachallover:JasX/"+rootfolder+"/"+root+"/"+s;
+		
+		list_each(sf, k, v, 
+			if(v != root)
+				off+="detachall:JasX/"+rootfolder+"/"+v+"/"+s;
+		)
+	)
+    
+    toggleSlot(root, pos);
     
     //multiTimer([TIMER_REPEAT, on+"=force", 2, FALSE]);
-    llOwnerSay("@"+implode("=force,", off)+"=force,"+on+"=force");
+    llOwnerSay("@"+implode("=force,", off)+"=force,"+implode("=force,", on)+"=force");
     
     onOutfitChanged();
 }
@@ -318,8 +347,7 @@ default
                     else if(rp == 2)equipped_slots_bits = [on,on,on,on,on];
                     else return;
                 }else{
-                    list SLF = SLOTFOLDERS;
-                    integer sp = llListFindList(SLF, [sub]);
+                    integer sp = findSlotFolder(sub);
                     if(rp == 0)equipped_slots_dressed = llListReplaceList(equipped_slots_dressed, [on], sp, sp);
                     else if(rp == 1)equipped_slots_underwear = llListReplaceList(equipped_slots_underwear, [on], sp, sp);
                     else if(rp == 2)equipped_slots_bits = llListReplaceList(equipped_slots_bits, [on], sp, sp);
