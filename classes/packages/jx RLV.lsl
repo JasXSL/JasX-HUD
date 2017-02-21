@@ -193,13 +193,19 @@ toggleClothes(string root, string sub){
 }
 
 openDialog(){
-	string text = "Chat commands: Either channel 0 or /1:
-jasx.setoutfit <name> - Change your JasX outfit
+	string text = "
+-- LINKS --
+	[http:\/\/jasx.org/#hud/ Main Website @ JasX.org]
+	[https:\/\/github.com/JasXSL/JasX-HUD API & Issues @ Github]
 
+-- CHAT COMMANDS -- 
+Either channel 0 or /1:
+	jasx.setoutfit <name> - Change your JasX outfit
+	
 -- Buttons --
-Log In - Logs you into the prim media again
-Dressed/Underwear/Bits - Change your clothing state
-Pass Reset - Generates a random JasX login password for you";
+	Log In - Logs you into the prim media again
+	Dressed/Underwear/Bits - Change your clothing state
+	Pass Reset - Generate a new pass";
 	list buttons = ["Dressed", "Underwear", "Bits","Log In", "Pass Reset"];
 	
 	llDialog(llGetOwner(), text, buttons, DIAG_CHAN);
@@ -209,9 +215,10 @@ default
 {
     state_entry()
     {
-        CHAN = llCeil(llFrand(0xFFFFFF));
-        INV_CHAN = llCeil(llFrand(0xFFFFFF));
-		DIAG_CHAN = llCeil(llFrand(0xFFFFFFF));
+		integer c = llCeil(llFrand(0xFFFFFF));
+        CHAN = c;
+        INV_CHAN = c+1;
+		DIAG_CHAN = c+2;
         
         // These are channels for the user
         llListen(0, "", llGetOwner(), "");
