@@ -1,14 +1,22 @@
+#define USE_EVENTS
 #define SCRIPT_IS_ROOT
 #include "jasx_hud/_core.lsl"
 
 integer BFL;
 #define BFL_BROWSER_OPEN 0x1
 
+integer LFP_ON;
+integer NUM_LFP = -1;
+
 integer P_BUTTON;
 integer P_BROWSER;
 integer P_CONF;
+integer P_LFP;
 vector BROWSER_POS = <0.516400, 0.064820, 0.633541>;
 
+key TOUCH_HOLDER;
+integer TOUCH_BUTTON;
+integer TOUCH_SEC;
 
 toggleBrowser(integer show){
     vector pos = BROWSER_POS;
@@ -25,6 +33,79 @@ toggleBrowser(integer show){
     llSetLinkPrimitiveParamsFast(P_BROWSER, [PRIM_POSITION, pos]);
 }
 
+setLFP(){
+	integer numPlayers = NUM_LFP;
+	string text = (str)numPlayers;
+	if(numPlayers == -1)
+		text = "??";
+	while(llStringLength(text) < 2)
+		text = "0"+text;
+	
+	string index = "0123456789?";
+	list out; integer i;
+	for(i=0; i<2; ++i){
+		integer offset = llSubStringIndex(index, llGetSubString(text, i, i));
+		out+= [PRIM_TEXTURE, i, "be7f6cd7-9062-c395-6b71-8fee14bccc02", <1./16, 1, 0>, <1./32-1./16*8+1./16*offset,0,0>, 0];
+	}
+	
+	vector color = <0.667, 0.667, 0.667>;
+	if(numPlayers == -1)
+		color = <.7,.5,.5>;
+	else if(LFP_ON)
+		color = <.5,.7,.5>;
+	
+		
+	out+= [PRIM_COLOR, 2, color, 1];
+	
+	llSetLinkPrimitiveParamsFast(P_LFP, out);
+	
+}
+
+onEvt(string script, integer evt, list data){
+	if(script == "jx Bridge"){
+		if(evt == BridgeEvt$lfpPlayers){
+			NUM_LFP = l2i(data, 0);
+			setLFP();
+		}
+		else if(evt == BridgeEvt$DATA_CHANGED){
+			LFP_ON = (int)j(userData(), "last_lfp");
+			setLFP();
+		}
+	}
+	else if(script == cls$name){
+		if(evt == evt$TOUCH_HELD_SEC){
+			integer prim = l2i(data, 0);
+			if(llGetLinkName(prim) == "LFP"){
+				integer sec = l2i(data, 2);
+				if(sec == 1){
+					LFP_ON = !LFP_ON;
+					Bridge$toggleLFP(LFP_ON);
+					setLFP();
+				}
+			}
+		}
+		else if(evt == evt$TOUCH_END){
+			integer prim = l2i(data, 0);
+			integer sec = l2i(data, 2);
+			if(sec)
+				return;
+			if(llGetLinkName(prim) == "LFP"){
+				Bridge$setPage("lfp", []);
+				toggleBrowser(TRUE);
+			}
+		}
+	}
+}
+
+// Timer to handle double clicks and click hold
+timerEvent(string id, string data){
+    if(id == "TOUCH"){
+		list d = [TOUCH_BUTTON, TOUCH_HOLDER, ++TOUCH_SEC];
+		raiseEvent(evt$TOUCH_HELD_SEC, mkarr(d));
+		multiTimer(["TOUCH", 0, 1, FALSE]);
+	}
+}
+
 default
 {
     
@@ -36,6 +117,9 @@ default
         }
     }
     
+	timer(){multiTimer([]);}
+	
+	
     state_entry()
     {
         links_each(nr, name,
@@ -45,11 +129,14 @@ default
                 P_BROWSER = nr;
 			else if(name == "CONF")
 				P_CONF = nr;
+			else if(name == "LFP")
+				P_LFP = nr;
         )
                 
         // Hide
         toggleBrowser(FALSE);
-        
+        setLFP();
+		
 		// Build a DB schema
 		list tables = [
 			"jx RLV",
@@ -87,6 +174,21 @@ default
             toggleBrowser(FALSE);
         if(ln == P_CONF)
 			RLV$dialog();
+			
+		raiseEvent(evt$TOUCH_START, llList2Json(JSON_ARRAY, [llDetectedLinkNumber(0), llDetectedKey(0)]));
+		
+		TOUCH_HOLDER = llDetectedKey(0);
+		TOUCH_BUTTON = llDetectedLinkNumber(0);
+		TOUCH_SEC = 0;
+		multiTimer(["TOUCH", 0, 1, TRUE]);
+    }
+	
+	touch_end(integer total){ 
+        detOwnerCheck
+		
+		multiTimer(["TOUCH"]);
+        raiseEvent(evt$TOUCH_END, llList2Json(JSON_ARRAY, [llDetectedLinkNumber(0), llDetectedKey(0), TOUCH_SEC]));
+		
     }
     
     // This is the standard linkmessages

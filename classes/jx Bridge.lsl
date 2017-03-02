@@ -8,7 +8,8 @@
 #define BridgeMethod$setSex 11							// (int)sex
 #define BridgeMethod$setSpecies 12						// (int)species 
 #define BridgeMethod$setFlist 13						// (str)character
-
+#define BridgeMethod$toggleLFP 14						// (bool)on
+#define BridgeMethod$setPage 15							// (str)page, (var)arg1, arg2... - Loads a page in open JasX website browsers
 // Rem MRES 
 
 
@@ -22,9 +23,14 @@
 #define Bridge$setSpecies(species) runMethod((string)LINK_ROOT, "jx Bridge", BridgeMethod$setSpecies, [species], TNN)
 #define Bridge$setFlist(character) runMethod((string)LINK_ROOT, "jx Bridge", BridgeMethod$setFlist, [character], TNN)
 #define Bridge$login() runMethod((str)LINK_ROOT, "jx Bridge", BridgeMethod$login, [], TNN)
+#define Bridge$toggleLFP(on) runMethod((str)LINK_ROOT, "jx Bridge", BridgeMethod$toggleLFP, [on], TNN)
+#define Bridge$setPage(page, args) runMethod((str)LINK_ROOT, "jx Bridge", BridgeMethod$setPage, [page]+args, TNN)
+
+
 
 #define BridgeEvt$SOCKET_REFRESH 1	// void - Requests subscribts to send socket data
 #define BridgeEvt$DATA_CHANGED 2	// void - Userdata has changed
+#define BridgeEvt$lfpPlayers 3		// (int)nrPlayers - Nr players currently looking for group
 
 #define BridgeShared$USER_DATA "a"	//
 
