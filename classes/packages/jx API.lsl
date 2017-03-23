@@ -1,11 +1,15 @@
+// 1. PLEASE ENTER YOUR API KEY IN THE API_KEY NOTECARD - You can get an API key here: http://jasx.org/api/
+// 2. Drop items into the server you want to be able to give out.
+
 string MY_API_KEY;
 
-// Debug colors
+// These are just visuals. Good gets a green text above the prim, med yellow and bad red
 #define TYPE_GOOD 0
 #define TYPE_MED 1
 #define TYPE_BAD 2
-// Debug data
-integer TYPE;	
+// Current notice type
+integer TYPE;
+// Current notice
 string TEXT;
 
 // TIMERS
@@ -13,23 +17,34 @@ string TEXT;
 #define TIMER_VERIFY_URL "b"
 #define TIMER_FADE "c"
 
+
+// Fetch a new prim URL
+#define getURL() U_REQ = llRequestURL()
+
+
+
 // BITFLAGS
 integer BFL;
 #define BFL_QUERYING 1
 
-list REQS;		// Active HTTP request
-list TASKS;		// Queued tasks
-key N_REQ;		// Request notecard line from config
-key U_REQ;		// Fetch a new sim media URL
-key UV_REQ; 	// Verify that our URL is still valid
-string MY_URL;	// My current URL
+// Current outbound http request keys
+list REQS;
+// Task queue
+list TASKS;
+
+// Notecard request
+key N_REQ;
+// LSL URL Fetch request
+key U_REQ;
+// Verify server still live request
+key UV_REQ; 
+// My prim server URL
+string MY_URL;
 
 
 
-#define getURL() U_REQ = llRequestURL()
 
-
-// Sends all queued tasks to the server
+// Queues tasks and sends at a rate of max once every 2 sec to prevent script errors
 send(list tasks){
     if(tasks != [])TASKS+=tasks;
     if(TASKS == [] || BFL&BFL_QUERYING)return;
@@ -40,21 +55,22 @@ send(list tasks){
     TASKS = [];
 }
 
+// Timer event
 timerEvent(string id, string data){
-	
-	// We can send another query here
+    // 2 sec has passed since we last sent data
+    // Send any newly added tasks if possible
     if(id == TIMER_QUERYING){
         BFL = BFL&~BFL_QUERYING;
         send([]);
     }
-	
-	// Makes sure our URL is proper
-	else if(id == TIMER_VERIFY_URL){
+    
+    // Runs every now and then to make sure the prim URL is still good
+    else if(id == TIMER_VERIFY_URL){
         UV_REQ = llHTTPRequest(MY_URL, [], "");
     }
-	
-	// Fades out the debug text
-	else if(id == TIMER_FADE){
+    
+    // Fade out the status text
+    else if(id == TIMER_FADE){
         float alpha = (float)data - .05;
         if(alpha<=0){
             alpha = 0;
@@ -67,17 +83,17 @@ timerEvent(string id, string data){
 }
 
 
-// Sets the debug text
+// Sets the status text
 status(string text, integer type, float alpha){
     list colors = [<.5,1,.5>, <1,1,.5>, <1,.5,.5>];
-    if(TEXT != text)
+    if(TEXT != text){
         multiTimer([TIMER_FADE, 1, 8, FALSE]);
-    
+    }
     TEXT = text; TYPE = type;
     llSetText(text, llList2Vector(colors, type),alpha);
 }
 
-// Handles responses to the server
+// Adds a response for the JasX server
 list OUT;
 addOut(string task, integer success, string data){
     OUT+=llList2Json(JSON_OBJECT, [
@@ -89,158 +105,208 @@ addOut(string task, integer success, string data){
 
 default
 {
-    on_rez(integer mew){llReleaseURL(MY_URL); llResetScript();}
+    // Restart the script on rez
+    on_rez(integer mew){llResetScript();}
     
-	timer(){multiTimer([]);}
-	
+    // Handle timer
+    timer(){multiTimer([]);}
+    
     state_entry()
     {
+        // Start by getting the API key from the notecard
         status("Getting key...", TYPE_MED, 1);
         N_REQ = llGetNotecardLine("API_KEY", 0);
     }
     
-	// Handle restarts
+    // On inventory change, restart, since we might have changed the notecard
     changed(integer change){
-        if(change&(CHANGED_INVENTORY|CHANGED_REGION|CHANGED_REGION_START)){
+        if(change&CHANGED_INVENTORY){
             llReleaseURL(MY_URL);
             llResetScript();
         }
     }
     
-	// HTTP request handlers
+    // HTTP IN
     http_request(key id, string method, string body){
-	
-		// URL fetch
+        // Response to getting prim URL
         if(id == U_REQ){
+            // Fail, but the script will auto try
             if(method == URL_REQUEST_DENIED)
                 status("URL request denied. The sim is having issues. Trying again in 5 min", TYPE_BAD, 1);
+            
             else if(method == URL_REQUEST_GRANTED){
+                // We got a prim URL
                 status("Storing URL...", TYPE_MED, 1);
                 MY_URL = body;
-                // Save
+                
+                // Run an API task to set the owner of the API keys content server to this prim's url
+                // As such, you can only have one server active
                 send([
-                    apiTask(API_GAME_ACTION, gameAction(GAME_JASX, JASX_SET_CONTENTSERV_URL, MY_URL), "")
+                    apiTask(API_RUN_METHOD, llList2Json(JSON_OBJECT, [
+						METHOD_TABLE, "jasx_users",
+						METHOD_TASK, "contentserv",
+						METHOD_DATA, MY_URL
+					]), "")
                 ]);
             }
             return;
         }
         
-		// Response from the JasX server
-        
-        // JasX server syntax, it's recommended to add your own prefix to calls if you want to connect to the content-server yourself
+        // Request received from the JasX server start with JASX;;
+        // Add your own prefix to calls if you want to connect to this prim through your own server
         if(llGetSubString(body, 0, 5) == "JASX;;"){
+            // Lets you output any messages that will show up to the user on a successful response
             list messages = [];
             
             // Cycle through the requests
-            // Jasx requests are sent as [{"task":(str)task, "data":(var)data}]
-            // Jasx responses are sent in the form of {"tasks":[{"task":(str)task, "success":(int)success, "data":(var)data}], "message":(str)message}
-
-            // For JasX responses, you just need to do the following:
-            // Status: addOut(task, (int)success, (optional)data);
-            // Messages: messages+="My output message...";
-			// Beware that your messages will be HTML escaped by the server
+            // Jasx requests are sent as [{"task":(str)task, "data":(str)data}]
+            // Jasx responses are sent in the form of: 
+            /*
+                {
+                    "tasks":
+                    [
+                        {
+                            "task":(str)task, 
+                            "success":(int)success
+                        }
+                    ], 
+                    "message":(str)message
+                }
+            */
             
+            // To speed this up you can just use:
+            /* 
+                Status: 
+                    addOut(
+                        (str)task_received, 
+                        (int)success, 
+                        (optional)data
+                    );
+            */
+            // Messages: messages+="My output message...";
+            
+            // Fetch the requests as a list
             list requests = llJson2List(llGetSubString(body, 6, -1));
+
             while(llGetListLength(requests)){
-			
                 string req = llList2String(requests, 0);
                 requests = llDeleteSubList(requests, 0, 0);
+                
+                // Here we have task and data
                 string task = llJsonGetValue(req, ["task"]);
                 string data = llJsonGetValue(req, ["data"]);
                 
                 
-                // Send an item to an agent
+                // We received the send_item task where data is:
+                /*
+                    {
+                        agent : (key)recipient,
+                        item : (str)item
+                    }
+                */
                 if(task == "send_item"){
                     string targ = llJsonGetValue(data, ["agent"]);
                     string item = llJsonGetValue(data, ["item"]);
                     
                     // Make sure the item can be sent, and prevent this script or the API_KEY notecard from being sent
-                    
                     if(llGetInventoryType(item) == INVENTORY_NONE || item==llGetScriptName() || item == "API_KEY"){
                         messages += "Item "+item+" is restricted and cannot be sent.";
                         addOut(task, FALSE, "");
                         status("Item send failed!", TYPE_MED, 1);
                     }
-                    else if(llStringLength(targ) != 36){
+                    // If the agent key is valid
+                    else if((key)targ){
+                        status("Item send successful!", TYPE_GOOD, 1);
+                        // Respond with a success, no data is needed
+                        addOut(task, TRUE, "");
+                        // Output a message to the client
+                        messages += "Item was sent to you on Second Life!";
+                        // Send the item
+                        llGiveInventory(targ, item);
+                    }
+                    // The agent key was not proper
+                    else{
                         messages += "Invalid target agent.";
                         addOut(task, FALSE, "");
                         status("Item send failed!", TYPE_MED, 1);
                     }
-                    else{
-                        status("Item send successful!", TYPE_GOOD, 1);
-                        addOut(task, TRUE, "");
-                        messages += "Item was sent to you on Second Life!";
-                        llGiveInventory(targ, item);
-                    }
-					
                 }
                 
-				// List this prim's inventory
+                // Here the JasX server has requested an item listing
+                // We need to return a JSON array of items that can be sent
                 else if(task == "list_items"){
-                    
                     list op = [];
                     integer i;
                     for(i=0; i<llGetInventoryNumber(INVENTORY_ALL); i++){
                         string ln = llGetInventoryName(INVENTORY_ALL, i);
+                        // Don't include this script or the API key in the result
                         if(ln != llGetScriptName() && ln != "API_KEY")op+=ln;
                     } 
+                    // Respond with success and the JSON array
                     addOut(task, TRUE, llList2Json(JSON_ARRAY, op));
                 }
             }
             
             
-            
+            // Send the response with our OUT data
             llHTTPResponse(id, 200, llList2Json(JSON_OBJECT, [
                 "tasks", llList2Json(JSON_ARRAY, OUT),
                 "message", llDumpList2String(messages, "<br />")
             ]));
+            // Purge the out data for the next request
             OUT = [];
         }
         
         else{
+            // If the call wasn't from JasX, then put some code here
             // Handle non-jasx syntax calls
             llHTTPResponse(id, 200, "");
         }
         
     }
     
+    
+    // HTTP OUT responses
     http_response(key id, integer status, list meta, string body){
-		
-		// Our URL has been dropped
+        // This was an internal call to see if the prim URL is still active
         if(id == UV_REQ){
             if(status != 200)getURL();
-			return;
+            return;
         }
-		
-		// Make sure this request came from the prim
+        
+        // Make sure the call came from this script (was an API CALL)
         integer pos = llListFindList(REQS, [id]);
         if(pos== -1)return;
-		
         REQS = llDeleteSubList(REQS, pos, pos);
         
-		// Output messages received from the server
+		if(llJsonValueType(body, []) != JSON_OBJECT){
+			qd("Invalid response: "+body);
+			return;
+		}
+        
+        // Here we check if the body contained any messages, in that case ownersay them
         if(llJsonValueType(body, [API_MESSAGES]) != JSON_INVALID){
             list m = llJson2List(llJsonGetValue(body, [API_MESSAGES]));
             while(llGetListLength(m)){
-                qd(llList2String(m,0));
+                llOwnerSay(llList2String(m,0));
                 m = llDeleteSubList(m, 0, 0);
             }
         }
         
-		// Handle tasks
+        // Here we check through the tasks we sent and see how they went
         if(llJsonValueType(body, [API_TASKS]) != JSON_INVALID){
             list m = llJson2List(llJsonGetValue(body, [API_TASKS]));
 
             while(llGetListLength(m)){
                 string dta = llList2String(m,0);
                 m = llDeleteSubList(m, 0, 0);
-                
+
                 integer task = (integer)llJsonGetValue(dta, [API_TASK]);
                 string data  = llJsonGetValue(dta, [API_DATA]);
                 integer status = (integer)llJsonGetValue(dta, [API_STATUS]);
                 string callback = llJsonGetValue(dta, [API_CALLBACK]);
                 
-				// Error
+                // Status is 1 on success, this was not a success, we can check the status code to see why
                 if(status != 1){
                     string txt = "Task: "+(string)task+" failed: ";
                     if(status == STATUS_FAIL_DATA_MISSING)txt+="Incomplete data fields";
@@ -248,16 +314,19 @@ default
                     else txt+="Unknown reason. See log.";
                     status(txt, TYPE_BAD, 1);
                 }
-				
-				// Success
-				else{
-                    if(task == API_GAME_ACTION){
-                        integer game = (int)j(data, ACTION_GAME);
-                        integer atask = (integer)j(data, ACTION_TASK);
-                        if(game == GAME_JASX){
-                            if(atask == JASX_SET_CONTENTSERV_URL){
+                // This was a success
+                else{
+                    // We sent a game action
+                    if(task == API_RUN_METHOD){
+                        string table = j(data, METHOD_TABLE);
+                        string atask = j(data, METHOD_TASK);
+						string adata = j(data, METHOD_DATA);
+						
+                        if(table == "jasx_users"){
+						
+                            if(atask == "contentserv" && adata == JSON_TRUE)
                                 status("ContentServ online!", TYPE_GOOD, 1);
-                            }
+							
                         }
                     }
                 }
@@ -267,15 +336,27 @@ default
         
     }
     
+    
+    // Response from notecard fetch
     dataserver(key id, string data){
-        if(id == N_REQ){
-            if(llGetSubString(data, 0, 1) == "//")llDialog(llGetOwner(), "Please edit the API_KEY notecard in this server and replace it with your API key. You can see or get an API key at http://jasx.org/api", [], 987);
-            else{
-                status("Getting URL...", TYPE_MED, 1);
-                multiTimer([TIMER_VERIFY_URL, "", 300, TRUE]);
-                MY_API_KEY = llStringTrim(data, STRING_TRIM);
-                getURL();
-            }
+        if(id != N_REQ)return;
+        
+        // If we got the default message
+        if(llGetSubString(data, 0, 1) == "//")
+            llDialog(llGetOwner(), "Please edit the API_KEY notecard in this server and replace it with your API key. You can see or get an API key at http://jasx.org/api", [], 987);
+        // Try to get a prim URL
+        else{
+            // Store our API key in a global
+            MY_API_KEY = llStringTrim(data, STRING_TRIM);
+            
+            // Output debug
+            status("Getting URL...", TYPE_MED, 1);
+            
+            // Start verifying that our prim URL is valid every 5 min
+            multiTimer([TIMER_VERIFY_URL, "", 300, TRUE]);
+            
+            // Fetch our first prim URL immediately
+            getURL();
         }
     }
     
