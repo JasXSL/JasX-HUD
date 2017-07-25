@@ -314,6 +314,12 @@ default
             
             // Set the root outfit
             else if(method == "setoutfit"){
+				list split = llParseString2List(l2s(params, 0), [], ["{", "}"]);
+				if(count(split) > 1){
+					llDialog(llGetOwner(), "ERROR: You cannot use curly brackets {} in outfit names due to an LSL bug: https://jira.secondlife.com/browse/BUG-6495", [], 3773);
+					return;
+				}
+				
                 Bridge$setFolder(llList2String(params,0));
                 setRootFolder(l2s(params, 0));
                 onOutfitChanged();
