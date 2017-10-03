@@ -196,16 +196,18 @@ openDialog(){
 	string text = "
 -- LINKS --
 	[http:\/\/jasx.org/#hud/ Main Website @ JasX.org]
-	[https:\/\/github.com/JasXSL/JasX-HUD API & Issues @ Github]
+	[https:\/\/goo.gl/AkC1Ug API & Issues @ Github]
+	[https:\/\/imgur.com/a/FZhU4 Outfit Setup for Beginners] By Drau
 
 -- CHAT COMMANDS -- 
 Either channel 0 or /1:
-	jasx.setoutfit <name> - Change your JasX outfit
+	jasx.setoutfit <name> - Set outfit
+	jasx.setclothes dressed/underwear/bits - Outfit state
 	
 -- Buttons --
-	Log In - Logs you into the prim media again
-	Dressed/Underwear/Bits - Change your clothing state
-	Pass Reset - Generate a new pass";
+	Log In - Logs you into the prim media
+	Dressed/Underwear/Bits - Set clothing state
+	Pass Reset - Generates a new pass";
 	list buttons = ["Dressed", "Underwear", "Bits","Log In", "Pass Reset"];
 	
 	llDialog(llGetOwner(), text, buttons, DIAG_CHAN);
