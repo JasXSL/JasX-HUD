@@ -56,6 +56,14 @@ key sendAPI(string api_key, list tasks){
 
 
 
+// optional functions you can define to modify server behavior
+
+// LSL HTTP IN URL has changed
+// onURL( string url ){}
+
+// A task has been received, should return an integer. If TRUE, default behavior will be overridden
+// integer onTaskReceived( string task, string data ){}
 
 
-
+// A http response has been received
+// onHTTPResponse( key id, integer status, string body )

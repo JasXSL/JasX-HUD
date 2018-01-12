@@ -1,5 +1,17 @@
+
+
 // 1. PLEASE ENTER YOUR API KEY IN THE API_KEY NOTECARD - You can get an API key here: http://jasx.org/api/
 // 2. Drop items into the server you want to be able to give out.
+// Overridable events
+#ifndef onURL
+	#define onURL( url )
+#endif
+#ifndef onTaskReceived
+	#define onTaskReceived( task, data ) FALSE
+#endif
+#ifndef onHTTPResponse
+	#define onHTTPResponse( id, status, body )
+#endif
 
 string MY_API_KEY;
 
@@ -80,6 +92,14 @@ timerEvent(string id, string data){
         }
         status(TEXT, TYPE, alpha);
     }
+	
+	else if( startsWith(id, "IG:") ){
+	
+		list json = llJson2List(llGetSubString(id, 3, -1));
+		llGiveInventory(l2s(json, 0), l2s(json, 1));
+	
+	}
+	
 }
 
 
@@ -128,13 +148,16 @@ default
     
     // HTTP IN
     http_request(key id, string method, string body){
+	
         // Response to getting prim URL
         if(id == U_REQ){
+		
             // Fail, but the script will auto try
             if(method == URL_REQUEST_DENIED)
                 status("URL request denied. The sim is having issues. Trying again in 5 min", TYPE_BAD, 1);
             
             else if(method == URL_REQUEST_GRANTED){
+			
                 // We got a prim URL
                 status("Storing URL...", TYPE_MED, 1);
                 MY_URL = body;
@@ -148,6 +171,9 @@ default
 						METHOD_DATA, MY_URL
 					]), "")
                 ]);
+				
+				onURL( body );
+				
             }
             return;
         }
@@ -188,7 +214,8 @@ default
             // Fetch the requests as a list
             list requests = llJson2List(llGetSubString(body, 6, -1));
 
-            while(llGetListLength(requests)){
+            while( llGetListLength(requests) ){
+			
                 string req = llList2String(requests, 0);
                 requests = llDeleteSubList(requests, 0, 0);
                 
@@ -204,25 +231,37 @@ default
                         item : (str)item
                     }
                 */
-                if(task == "send_item"){
+				
+				// Override default behavior
+				if( onTaskReceived(task, data) ){}
+                else if( task == "send_item" ){
+				
                     string targ = llJsonGetValue(data, ["agent"]);
                     string item = llJsonGetValue(data, ["item"]);
                     
                     // Make sure the item can be sent, and prevent this script or the API_KEY notecard from being sent
-                    if(llGetInventoryType(item) == INVENTORY_NONE || item==llGetScriptName() || item == "API_KEY"){
-                        messages += "Item "+item+" is restricted and cannot be sent.";
+                    if( llGetInventoryType(item) == INVENTORY_NONE || item==llGetScriptName() || item == "API_KEY" ){
+					
+						if( item==llGetScriptName() || item == "API_KEY" )
+							messages += "Item "+item+" is restricted and cannot be sent.";
+						else
+							messages += "Item not found in server.";
+							
                         addOut(task, FALSE, "");
                         status("Item send failed!", TYPE_MED, 1);
+						
                     }
                     // If the agent key is valid
-                    else if((key)targ){
+                    else if( (key)targ ){
+					
                         status("Item send successful!", TYPE_GOOD, 1);
                         // Respond with a success, no data is needed
                         addOut(task, TRUE, "");
                         // Output a message to the client
                         messages += "Item was sent to you on Second Life!";
-                        // Send the item
-                        llGiveInventory(targ, item);
+                        // Defer the item send to a timer to send the response in a timely fashion
+                        multiTimer(["IG:"+mkarr(([targ, item])), 0, 0.1, FALSE]);
+						
                     }
                     // The agent key was not proper
                     else{
@@ -230,11 +269,13 @@ default
                         addOut(task, FALSE, "");
                         status("Item send failed!", TYPE_MED, 1);
                     }
+					
                 }
                 
                 // Here the JasX server has requested an item listing
                 // We need to return a JSON array of items that can be sent
-                else if(task == "list_items"){
+                else if( task == "list_items" ){
+				
                     list op = [];
                     integer i;
                     for(i=0; i<llGetInventoryNumber(INVENTORY_ALL); i++){
@@ -244,6 +285,7 @@ default
                     } 
                     // Respond with success and the JSON array
                     addOut(task, TRUE, llList2Json(JSON_ARRAY, op));
+					
                 }
             }
             
@@ -267,37 +309,53 @@ default
     
     
     // HTTP OUT responses
-    http_response(key id, integer status, list meta, string body){
+    http_response( key id, integer status, list meta, string body ){
+	
         // This was an internal call to see if the prim URL is still active
-        if(id == UV_REQ){
-            if(status != 200)getURL();
+        if( id == UV_REQ ){
+		
+            if( status != 200 )
+				getURL();
             return;
+			
         }
+		
+		onHTTPResponse( id, status, body );
         
         // Make sure the call came from this script (was an API CALL)
         integer pos = llListFindList(REQS, [id]);
-        if(pos== -1)return;
+        if( pos== -1 )
+			return;
+			
         REQS = llDeleteSubList(REQS, pos, pos);
         
-		if(llJsonValueType(body, []) != JSON_OBJECT){
+		if( llJsonValueType(body, []) != JSON_OBJECT ){
+		
 			qd("Invalid response: "+body);
 			return;
+			
 		}
         
         // Here we check if the body contained any messages, in that case ownersay them
-        if(llJsonValueType(body, [API_MESSAGES]) != JSON_INVALID){
+        if( llJsonValueType(body, [API_MESSAGES]) != JSON_INVALID ){
+		
             list m = llJson2List(llJsonGetValue(body, [API_MESSAGES]));
-            while(llGetListLength(m)){
+            while( llGetListLength(m) ){
+			
                 llOwnerSay(llList2String(m,0));
                 m = llDeleteSubList(m, 0, 0);
+				
             }
+			
         }
         
         // Here we check through the tasks we sent and see how they went
-        if(llJsonValueType(body, [API_TASKS]) != JSON_INVALID){
-            list m = llJson2List(llJsonGetValue(body, [API_TASKS]));
+        if( llJsonValueType(body, [API_TASKS]) != JSON_INVALID ){
+            
+			list m = llJson2List(llJsonGetValue(body, [API_TASKS]));
 
-            while(llGetListLength(m)){
+            while( llGetListLength(m) ){
+			
                 string dta = llList2String(m,0);
                 m = llDeleteSubList(m, 0, 0);
 
@@ -307,28 +365,37 @@ default
                 string callback = llJsonGetValue(dta, [API_CALLBACK]);
                 
                 // Status is 1 on success, this was not a success, we can check the status code to see why
-                if(status != 1){
+                if( status != 1 ){
+				
                     string txt = "Task: "+(string)task+" failed: ";
-                    if(status == STATUS_FAIL_DATA_MISSING)txt+="Incomplete data fields";
-                    else if(status == STATUS_FAIL_ACCESS_DENIED)txt+="Access denied";
-                    else txt+="Unknown reason. See log.";
+                    if(status == STATUS_FAIL_DATA_MISSING)
+						txt+="Incomplete data fields";
+                    else if(status == STATUS_FAIL_ACCESS_DENIED)
+						txt+="Access denied";
+                    else 
+						txt+="Unknown reason. See log.";
                     status(txt, TYPE_BAD, 1);
+					
                 }
                 // This was a success
                 else{
+				
                     // We sent a game action
-                    if(task == API_RUN_METHOD){
+                    if( task == API_RUN_METHOD ){
+					
                         string table = j(data, METHOD_TABLE);
                         string atask = j(data, METHOD_TASK);
 						string adata = j(data, METHOD_DATA);
 						
-                        if(table == "jasx_users"){
+                        if( table == "jasx_users" ){
 						
-                            if(atask == "contentserv" && adata == JSON_TRUE)
+                            if( atask == "contentserv" && adata == JSON_TRUE )
                                 status("ContentServ online!", TYPE_GOOD, 1);
 							
                         }
+						
                     }
+					
                 }
                 
             }
@@ -338,11 +405,13 @@ default
     
     
     // Response from notecard fetch
-    dataserver(key id, string data){
-        if(id != N_REQ)return;
+    dataserver( key id, string data ){
+	
+        if( id != N_REQ )
+			return;
         
         // If we got the default message
-        if(llGetSubString(data, 0, 1) == "//")
+        if( llGetSubString(data, 0, 1) == "//" )
             llDialog(llGetOwner(), "Please edit the API_KEY notecard in this server and replace it with your API key. You can see or get an API key at http://jasx.org/api", [], 987);
         // Try to get a prim URL
         else{
