@@ -33,7 +33,24 @@
 #define BridgeEvt$lfpPlayers 3		// (int)nrPlayers - Nr players currently looking for group
 
 #define BridgeShared$USER_DATA "a"	//
-
+	#define BSUD$id "id"							// int - JasX USER ID
+	#define BSUD$username "username"				// str - HTML Encoded username
+	#define BSUD$accountstatus "accountstatus" 		// int - Account privileges, default 1
+	#define BSUD$signupdate "signupdate"			// int - Unix timestamp of when the user signed up
+	#define BSUD$avatar "avatar"					// str - HTML encoded file name of user's avatar
+	#define BSUD$fullname "fullname"				// str - URL version of the user
+	#define BSUD$bitflags "bitflags"				// int - Settings
+	#define BSUD$last_lfp "last_lfp"				// int - Unix timestamp of the last LFP ping
+	#define BSUD$sex "sex"							// int - Bitflags for sex, 1 = penis, 2 = vag, 4 = breasts
+	#define BSUD$species "species"					// int - Avatar type
+	#define BSUD$lfp_for "lfp_for"					// array - Games you're looking for players for
+	#define BSUD$games_owned "games_owned"			// array - ids of games you own
+	#define BSUD$charname "charname"				// str - SL name
+	#define BSUD$currenttitle "currenttitle"		// int - ID of active title
+	#define BSUD$flist "flist"						// str - html escaped version of your f-list character
+	#define BSUD$outfit "outfit"					// str - Current outfit worn
+	#define BSUD$spname "spname"					// str - name of avatar type
+	#define BSUD$roleplay_status "roleplay_status" 	// int - Type of roleplay you're looking for in LFP
 
 #define userData() db3$get("jx Bridge", ([BridgeShared$USER_DATA])) 
 	

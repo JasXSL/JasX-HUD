@@ -42,7 +42,7 @@ integer BFL;
 
 
 // Fetch clothing
-#define recacheClothes() llOwnerSay("@getinv:jasx="+(string)INV_CHAN)
+#define recacheClothes() llOwnerSay("@getinv:jasx="+(string)INV_CHAN); multiTimer(["OT", 0, 2, FALSE])
 #define getRootFolder() rootfolder = db3$get("jx Bridge", ([BridgeShared$USER_DATA, "outfit"]))
 // Outputs API message
 #define onOutfitChanged() \
@@ -81,6 +81,7 @@ onEvt(string script, integer evt, list data){
     if(script == "jx Bridge"){
         // Bridge initialization
         if(evt == evt$SCRIPT_INIT){
+			multiTimer(["INI", 0, 2, FALSE]);
             llOwnerSay("@versionnum="+(string)CHAN);
             getRootFolder();
             recacheClothes();
@@ -111,7 +112,9 @@ setRootFolder(string n){
     else{
         getRootFolder();
     }
-    if(pre == rootfolder)return;
+	
+    if(pre == rootfolder)
+		return;
             
     llOwnerSay("@detachall:JasX/"+pre+"=force,attachallover:JasX/"+rootfolder+"/Avatar=force,attachallover:JasX/"+rootfolder+"/Dressed=force");
     onOutfitChanged();
@@ -213,6 +216,18 @@ Either channel 0 or /1:
 	llDialog(llGetOwner(), text, buttons, DIAG_CHAN);
 }
 
+timerEvent(string id, string data){
+	if(id == "OT")
+		Bridge$updateClothes(available_folders);
+	else if(id == "INI")
+		llDialog(llGetOwner(), 
+			"\nError: RLV Not found! To enable RLV, please follow these steps:\n"+
+			"1. Use a supported third party viewer, such as [https://www.firestormviewer.org/downloads/ Firestorm Viewer].\n"+
+			"2. Go into preferences (ctrl+p) > Firestorm tab > Extras Tab > Allow Remote Scripted Viewer Controls (RLVa).\n"+
+			"3. Restart your viewer."
+		, [], 17);
+}
+
 default
 {
     state_entry()
@@ -235,6 +250,8 @@ default
         getRootFolder();
     }
     
+	timer(){multiTimer([]);}
+	
     listen(integer chan, string name, key id, string message){
         idOwnerCheck
         
@@ -267,7 +284,7 @@ default
                     i--;
                 }
             }
-            
+            multiTimer(["OT"]);
             db3$set([RLVShared$RLV_FOLDERS], llList2Json(JSON_ARRAY, available_folders));
             Bridge$updateClothes(available_folders);
 			return;
@@ -406,6 +423,7 @@ default
         
         if(chan != CHAN)return; 
         if(~BFL&BFL_INIT){
+			multiTimer(["INI"]);
             if((integer)message >= 2000000){
                 BFL = BFL|BFL_INIT;
                 llOwnerSay("RLV successfully initialized");
@@ -430,8 +448,9 @@ default
     if(method$internal){
         if(METHOD == RLVMethod$setClothes)
             toggleClothes(method_arg(0), method_arg(1));
-        else if(METHOD == RLVMethod$recacheFolders)
+        else if(METHOD == RLVMethod$recacheFolders){
             recacheClothes();
+		}
 		else if(METHOD == RLVMethod$dialog){
 			openDialog();
 		}

@@ -12,11 +12,14 @@ integer P_BUTTON;
 integer P_BROWSER;
 integer P_CONF;
 integer P_LFP;
+integer P_TOOLTIP;
 vector BROWSER_POS = <0.516400, 0.064820, 0.633541>;
 
 key TOUCH_HOLDER;
 integer TOUCH_BUTTON;
 integer TOUCH_SEC;
+
+int TOOLTIP_STAGE;
 
 toggleBrowser(integer show){
     vector pos = BROWSER_POS;
@@ -96,14 +99,46 @@ onEvt(string script, integer evt, list data){
 		}
 	}
 }
+#define saveTooltipStage() DB3$set(["tut"], TOOLTIP_STAGE)
 
 // Timer to handle double clicks and click hold
 timerEvent(string id, string data){
+
     if(id == "TOUCH"){
+		
 		list d = [TOUCH_BUTTON, TOUCH_HOLDER, ++TOUCH_SEC];
 		raiseEvent(evt$TOUCH_HELD_SEC, mkarr(d));
 		multiTimer(["TOUCH", 0, 1, FALSE]);
+		if(TOUCH_BUTTON == P_TOOLTIP && TOUCH_SEC > 1){
+			TOOLTIP_STAGE = 0xFFFFFF;
+			saveTooltipStage();
+			advanceTooltip();
+		}
+		
 	}
+	
+}
+
+
+advanceTooltip(){
+	
+	llSetLinkPrimitiveParams(P_TOOLTIP, [PRIM_POSITION, ZERO_VECTOR, PRIM_TEXT, "", <1,1,1>, 1]);
+
+	list stages = [
+		<0.470261, 0.059536, 0.204437>, "Thanks for using the JasX HUD.\nClick this triangle to continue.\nClick and hold the triangle to skip tutorial.",
+		<0.470261, 0.059536, 0.204437>, "The main button toggles the\nJasX Browser.",
+		<0.470261, 0.059536, 0.204437>, "Use it to change\nsettings and outfits.",
+		<0.470261, 0.123600, 0.204437>, "Click this cog for help and\nin-SL commands.",
+		<0.470261, -0.008211, 0.204437>, "Players looking for group are shown here.\nClick to see all players.\nClick and hold to toggle LFG."
+	];
+	if(TOOLTIP_STAGE > count(stages)/2)
+		return;
+		
+	llSetLinkPrimitiveParams(P_TOOLTIP, [PRIM_POSITION, l2v(stages, TOOLTIP_STAGE*2), PRIM_TEXT, l2s(stages, TOOLTIP_STAGE*2+1), <.5,.75,1>, 1]);
+	saveTooltipStage();
+	++TOOLTIP_STAGE;
+	
+	
 }
 
 default
@@ -113,15 +148,17 @@ default
     changed(integer change){
         if(change&CHANGED_OWNER){
             llDialog(llGetOwner(), "Since the JasX HUD is now open source, please take a moment to verify that you received this HUD from secondlife:///app/agent/cf2625ff-b1e9-4478-8e6b-b954abde056b/about : Do not accept HUDs from people you don't trust.", [], 3267);
-            llResetScript();
+            TOOLTIP_STAGE = 0;
+			saveTooltipStage();
+			llResetScript();
         }
     }
     
 	timer(){multiTimer([]);}
 	
 	
-    state_entry()
-    {
+    state_entry(){
+	
         links_each(nr, name,
             if(name == "BUTTON")
                 P_BUTTON = nr;
@@ -131,6 +168,8 @@ default
 				P_CONF = nr;
 			else if(name == "LFP")
 				P_LFP = nr;
+			else if(name == "TOOLTIP")
+				P_TOOLTIP = nr;
         )
                 
         // Hide
@@ -140,7 +179,8 @@ default
 		// Build a DB schema
 		list tables = [
 			"jx RLV",
-			"jx Bridge"
+			"jx Bridge",
+			cls$name
 		];
 		db3$addTables(tables);
 		
@@ -155,7 +195,7 @@ default
             PRIM_MEDIA_PERMS_CONTROL, PRIM_MEDIA_PERM_OWNER,
             PRIM_MEDIA_PERMS_INTERACT, PRIM_MEDIA_PERM_OWNER
         ]);
-		
+			
 		memLim(1.5);
     }
     
@@ -188,6 +228,8 @@ default
 		
 		multiTimer(["TOUCH"]);
         raiseEvent(evt$TOUCH_END, llList2Json(JSON_ARRAY, [llDetectedLinkNumber(0), llDetectedKey(0), TOUCH_SEC]));
+		if(TOUCH_BUTTON == P_TOOLTIP)
+			advanceTooltip();
 		
     }
     
@@ -206,6 +248,8 @@ default
 		// DB tables created
 		if(id == "" && SENDER_SCRIPT == "#ROOT" && METHOD == stdMethod$setShared){
 			resetAllOthers();
+			TOOLTIP_STAGE = (int)DB3$get(cls$name, ["tut"]);
+			advanceTooltip();
 		}
         return;
     }
