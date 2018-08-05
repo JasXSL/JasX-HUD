@@ -79,13 +79,16 @@ integer findSlotFolder(string folder){
 onEvt(string script, integer evt, list data){
 
     if(script == "jx Bridge"){
-        // Bridge initialization
+        
+		// Bridge initialization
         if(evt == evt$SCRIPT_INIT){
+		
 			multiTimer(["INI", 0, 2, FALSE]);
             llOwnerSay("@versionnum="+(string)CHAN);
             getRootFolder();
             recacheClothes();
             onOutfitChanged();
+			
         }
         
         // Bridge folder change
@@ -219,13 +222,24 @@ Either channel 0 or /1:
 timerEvent(string id, string data){
 	if(id == "OT")
 		Bridge$updateClothes(available_folders);
-	else if(id == "INI")
-		llDialog(llGetOwner(), 
-			"\nError: RLV Not found! To enable RLV, please follow these steps:\n"+
-			"1. Use a supported third party viewer, such as [https://www.firestormviewer.org/downloads/ Firestorm Viewer].\n"+
-			"2. Go into preferences (ctrl+p) > Firestorm tab > Extras Tab > Allow Remote Scripted Viewer Controls (RLVa).\n"+
-			"3. Restart your viewer."
-		, [], 17);
+	else if(id == "INI"){
+		
+		int d = (int)data;
+		if(d > 5)
+			llDialog(llGetOwner(), 
+				"\nError: RLV Not found! To enable RLV, please follow these steps:\n"+
+				"1. Use a supported third party viewer, such as [https://www.firestormviewer.org/downloads/ Firestorm Viewer].\n"+
+				"2. Go into preferences (ctrl+p) > Firestorm tab > Extras Tab > Allow Remote Scripted Viewer Controls (RLVa).\n"+
+				"3. Restart your viewer."
+			, [], 17);
+		else{
+		
+			multiTimer([id, d+1, 10, FALSE]);
+			llOwnerSay("@versionnum="+(string)CHAN);
+			
+		}
+		
+	}
 }
 
 default
@@ -422,8 +436,9 @@ default
         } 
         
         if(chan != CHAN)return; 
+		multiTimer(["INI"]);
         if(~BFL&BFL_INIT){
-			multiTimer(["INI"]);
+			
             if((integer)message >= 2000000){
                 BFL = BFL|BFL_INIT;
                 llOwnerSay("RLV successfully initialized");
