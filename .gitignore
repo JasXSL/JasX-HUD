@@ -45,3 +45,9 @@ $RECYCLE.BIN/
 Network Trash Folder
 Temporary Items
 .apdisk
+legacy/classes/jx API.lsl
+legacy/_core.lsl
+legacy/classes/jx RLV.lsl
+legacy/classes/jx Bridge.lsl
+*.bak
+legacy/classes/jx Root.lsl

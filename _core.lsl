@@ -11,3 +11,5 @@
 #define VAGINA 2
 #define TITS 4
 
+#define GENITALS_ALL (PENIS|VAGINA|TITS)
+

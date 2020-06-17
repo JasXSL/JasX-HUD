@@ -48,7 +48,7 @@ string apiTask(integer task, string data, string callback){
 }
 
 key sendAPI(string api_key, list tasks){
-	return llHTTPRequest("http://jasx.org/api/index.php", [HTTP_BODY_MAXLENGTH, 16384, HTTP_METHOD, "POST", HTTP_MIMETYPE, "application/x-www-form-urlencoded"], "request="+llEscapeURL(llList2Json(JSON_OBJECT, [
+	return llHTTPRequest("https://jasx.org/api/index.php", [HTTP_BODY_MAXLENGTH, 16384, HTTP_METHOD, "POST", HTTP_MIMETYPE, "application/x-www-form-urlencoded"], "request="+llEscapeURL(llList2Json(JSON_OBJECT, [
 		API_TASKS, llList2Json(JSON_ARRAY, tasks),
 		API_KEY, api_key
 	])));

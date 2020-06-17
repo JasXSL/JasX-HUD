@@ -18,9 +18,10 @@
 #define SLOT_BOOTS 4
 
 // Not sure why I need 2 channels?
-integer CHAN;
-integer INV_CHAN;
-integer DIAG_CHAN;
+int CHAN;
+int INV_CHAN;
+int DIAG_CHAN;
+int NOTECARD_CHAN;
 
 // Active folder from config
 string rootfolder;
@@ -34,7 +35,7 @@ list equipped_slots_bits = [0,0,0,0,0];
 // Contains a list of all available folders
 list available_folders;
 
-integer BFL;
+int BFL;
 // RLV initialized
 #define BFL_INIT 1
 // Strapon currently worn
@@ -56,12 +57,12 @@ integer BFL;
     
 
 // Searches slot folders and returns an index	
-integer findSlotFolder(string folder){
+int findSlotFolder(string folder){
 	
 	list sf = SLOTFOLDERS;
 	folder = llToLower(folder);
 	
-	integer i;
+	int i;
 	for(i=0; i<count(sf); ++i){
 		
 		list scan = [l2s(sf, i)];
@@ -76,7 +77,7 @@ integer findSlotFolder(string folder){
 
 }
     
-onEvt(string script, integer evt, list data){
+onEvt(string script, int evt, list data){
 
     if(script == "jx Bridge"){
         
@@ -107,30 +108,33 @@ onEvt(string script, integer evt, list data){
 
 // Changes the root folder
 setRootFolder(string n){
+
     string pre = rootfolder;
     // If n is set, use that
     if(n)
         rootfolder = n;
     // Otherwise update from shared
-    else{
+    else
         getRootFolder();
-    }
 	
     if(pre == rootfolder)
 		return;
             
+	
     llOwnerSay("@detachall:JasX/"+pre+"=force,attachallover:JasX/"+rootfolder+"/Avatar=force,attachallover:JasX/"+rootfolder+"/Dressed=force");
+	llOwnerSay("@getinv:jasx/"+rootfolder+"="+(string)NOTECARD_CHAN);
     onOutfitChanged();
+	
 }
 
 
 
 
 // Toggle a folder within a slot (data only)
-toggleSlot(string folder, integer slot){
+toggleSlot(string folder, int slot){
     folder = llToLower(folder);
     list sf = SUBFOLDERS;
-    integer a = llListFindList(sf, [folder]);
+    int a = llListFindList(sf, [folder]);
     if(a == -1)return;
     
     list f = [
@@ -138,9 +142,9 @@ toggleSlot(string folder, integer slot){
         llList2Json(JSON_ARRAY, equipped_slots_underwear),
         llList2Json(JSON_ARRAY, equipped_slots_bits)
     ];
-    integer i;
+    int i;
     for(i=0; i<llGetListLength(f); i++){
-        list bits = llJson2List(llList2String(f,i));
+        list bits = llJson2List(l2s(f,i));
         
         if(i == a){
             if(slot == -1)bits = [1,1,1,1,1];
@@ -151,9 +155,9 @@ toggleSlot(string folder, integer slot){
         }
         f = llListReplaceList(f, [llList2Json(JSON_ARRAY, bits)], i, i);
     }
-    equipped_slots_dressed = llJson2List(llList2String(f, 0));
-    equipped_slots_underwear = llJson2List(llList2String(f, 1));
-    equipped_slots_bits = llJson2List(llList2String(f, 2));
+    equipped_slots_dressed = llJson2List(l2s(f, 0));
+    equipped_slots_underwear = llJson2List(l2s(f, 1));
+    equipped_slots_bits = llJson2List(l2s(f, 2));
 }
 
 // Output current outfit in an RLV command
@@ -167,7 +171,7 @@ toggleClothes(string root, string sub){
 	list sf = SUBFOLDERS;
 	list slotf = SLOTFOLDERS;
 	list subs = [sub];
-	integer pos = findSlotFolder(sub);
+	int pos = findSlotFolder(sub);
 	
 	if(~pos){
 		string s = l2s(slotf, pos);
@@ -203,7 +207,7 @@ openDialog(){
 -- LINKS --
 	[http:\/\/jasx.org/#hud/ Main Website @ JasX.org]
 	[https:\/\/goo.gl/AkC1Ug API & Issues @ Github]
-	[https:\/\/imgur.com/a/FZhU4 Outfit Setup for Beginners] By Drau
+	[https:\/\/bit.ly/3aeYAdU Outfit Setup for Beginners] By Drau
 
 -- CHAT COMMANDS -- 
 Either channel 0 or /1:
@@ -242,14 +246,16 @@ timerEvent(string id, string data){
 	}
 }
 
-default
-{
-    state_entry()
-    {
-		integer c = llCeil(llFrand(0xFFFFFF));
+default{
+
+    state_entry(){
+	
+		int c = llCeil(llFrand(0xFFFFFF));
         CHAN = c;
         INV_CHAN = c+1;
 		DIAG_CHAN = c+2;
+		NOTECARD_CHAN = c+3;		// Channel for fetching notecard vars
+		
         
         // These are channels for the user
         llListen(0, "", llGetOwner(), "");
@@ -259,82 +265,149 @@ default
         llListen(CHAN, "", llGetOwner(), "");       	// RLV initialization
         llListen(INV_CHAN, "", llGetOwner(), "");   	// Folder data fetch
         llListen(DIAG_CHAN, "", llGetOwner(), "");   	// Dialog popup
+        llListen(NOTECARD_CHAN, "", llGetOwner(), "");   	// Dialog popup
         
         // Fetch from root if possible
         getRootFolder();
+		
     }
     
-	timer(){multiTimer([]);}
+	timer(){ multiTimer([]); }
 	
-    listen(integer chan, string name, key id, string message){
+    listen( int chan, string name, key id, string message ){
         idOwnerCheck
         
 		if(chan == DIAG_CHAN){
 			
-			if(message == "Log In"){
+			if( message == "Log In" )
 				Bridge$login();
-			}
-			else if(message == "Pass Reset"){
+				
+			else if( message == "Pass Reset" ){
+				
 				llOwnerSay("Genereting a new password");
 				Bridge$resetPass();
+				
 			}
-			else if(~llListFindList(["Dressed","Underwear","Bits"], [message])){
+			else if( ~llListFindList(["Dressed","Underwear","Bits"], [message]) )
 				toggleClothes(message, "");
-			}
+			
 			
 		}
 		
         // Inventory channel
-        if(chan == INV_CHAN){
+        if( chan == INV_CHAN ){
+		
             // Folders fetched
             available_folders = llCSV2List(message);
             
             // Cycle folders and remove invalid options
-            integer i;
-            for(i=0; i<count(available_folders); i++){
+            int i;
+            for( ; i<count(available_folders); ++i ){
+			
                 string val = llStringTrim(l2s(available_folders, i), STRING_TRIM);
-                if(llToLower(val) == "onattach" || val == ""){
+                if( llToLower(val) == "onattach" || val == "" ){
+				
                     available_folders = llDeleteSubList(available_folders, i, i);
                     i--;
+					
                 }
+				
             }
+			
             multiTimer(["OT"]);
             db3$set([RLVShared$RLV_FOLDERS], llList2Json(JSON_ARRAY, available_folders));
             Bridge$updateClothes(available_folders);
 			return;
+			
         }
+		
+		// Handles setting folders
+		if( chan == NOTECARD_CHAN ){
+		
+			int sex = -1;
+			int spec = -1;
+			
+			list split = explode(",", message);
+			list_shift_each(split, val,
+				
+				if( llGetSubString(val, 0, 0) == "$" ){
+					
+					list v = llDeleteSubList(explode("$", val), 0, 0);
+					int i;
+					for(; i < count(v); ++i ){
+						
+						list setting = explode("=", l2s(v, i));
+						str ty = llToLower(l2s(setting, 0));
+						if( ty == "sex" )
+							sex = l2i(setting, 1);
+						else if( ty == "spec" || ty == "species" )
+							spec = l2i(setting, 1);
+					
+					}
+					
+				}
+				
+			)
+			
+			
+			if( sex > -1 ){
+			
+				sex = sex&GENITALS_ALL;
+				Bridge$setSex(sex);
+				
+			}
+			
+			if( spec > -1 && spec < 4 )
+				Bridge$setSpecies(spec);
+		
+		}
         
         
         // User/Script inputs
-        if(chan == CLOTHING_CHAN || chan == 0){
+        if( chan == CLOTHING_CHAN || chan == 0 ){
+		
             // Parse the message jasx.<method> <arg0>, <arg1>...
             list split = llParseString2List(message, [".", " "], []);
             
             // Type should be jasx (case insensitive)
-            string type = llToLower(llList2String(split,0));
+            str type = llToLower(l2s(split,0));
             if(llToLower(type) != "jasx")
                 return;
             
             
             // Method is variable
-            string method = llToLower(llList2String(split,1)); 
+            str method = llToLower(l2s(split,1)); 
             message = llGetSubString(message, llStringLength(type+"."+method), -1);
             
             // Params contain the rest of the params
             list params = llCSV2List(message);
 
             // Sets a current subfolder, ex: dressed/groin
-            if(method == "setclothes"){
-                list struct = llParseString2List(llList2String(params,0), ["/"], []);
-                string root = trim(llList2String(struct,0));
-                string sub = trim(llList2String(struct,1));
+            if( method == "setclothes" ){
+			
+                list struct = llParseString2List(l2s(params,0), ["/"], []);
+                str root = trim(l2s(struct,0));
+                str sub = trim(l2s(struct,1));
                 toggleClothes(root, sub);
+				
             }
+			
+			else if( method == "setcustom" ){
+			
+				str folder = l2s(params, 0);
+				int on = l2i(params, 1);
+				if( on )
+					llOwnerSay("@attachallover:JasX/"+rootfolder+"/"+folder+"=force");
+				else
+					llOwnerSay("@detachall:JasX/"+rootfolder+"/"+folder+"=force");
+				
+			}
             
             // Toggles the strapon
-            else if(method == "setstrapon"){
-                integer on = llList2Integer(params,0);
-                if(on){
+            else if( method == "setstrapon" ){
+			
+                int on = l2i(params,0);
+                if( on ){
                     BFL = BFL|BFL_STRAPON;
                     llOwnerSay("@attachallover:JasX/"+rootfolder+"/Strapon=force");
                 }
@@ -343,108 +416,139 @@ default
                     llOwnerSay("@detachall:JasX/"+rootfolder+"/Strapon=force");
                 }
                 onOutfitChanged();
+				
             }
             
             // Set the root outfit
-            else if(method == "setoutfit"){
+            else if( method == "setoutfit" ){
+			
 				list split = llParseString2List(l2s(params, 0), [], ["{", "}"]);
-				if(count(split) > 1){
+				if( count(split) > 1 ){
+				
 					llDialog(llGetOwner(), "ERROR: You cannot use curly brackets {} in outfit names due to an LSL bug: https://jira.secondlife.com/browse/BUG-6495", [], 3773);
 					return;
+					
 				}
 				
-                Bridge$setFolder(llList2String(params,0));
+                Bridge$setFolder(l2s(params,0));
                 setRootFolder(l2s(params, 0));
                 onOutfitChanged();
+				
             }
             
             // Toggle an onattach folder
-            else if(method == "onattach"){
-                string game = llList2String(params,0);
-                integer on = llList2Integer(params,1);
-                if(on)llOwnerSay("@attachallover:JasX/onAttach/"+game+"=force");
-                else llOwnerSay("@detachall:JasX/onAttach/"+game+"=force");
+            else if( method == "onattach" ){
+			
+                string game = l2s(params,0);
+                int on = l2i(params,1);
+                if( on )
+					llOwnerSay("@attachallover:JasX/onAttach/"+game+"=force");
+                else 
+					llOwnerSay("@detachall:JasX/onAttach/"+game+"=force");
                 
-                if(on)
+                if( on )
                     llRegionSayTo(llGetOwner(), 2, "gameattached:"+llList2Json(JSON_OBJECT, [
                         "game", llToLower(game)
                     ]));
+					
             }
             
             // Toggle a specific folder without affecting another. Lets you take off underwear of one folder without replacing it with another for an instance.
-            else if(method == "togglefolder"){
-                string folder = llList2String(params,0);
-                integer on = llList2Integer(params,1);
+            else if( method == "togglefolder" ){
+			
+                str folder = l2s(params,0);
+                int on = l2i(params,1);
                     
                     
-                if(on)llOwnerSay("@attachallover:JasX/"+rootfolder+"/"+folder+"=force");
-                else llOwnerSay("@detachall:JasX/"+rootfolder+"/"+folder+"=force");
+                if( on )
+					llOwnerSay("@attachallover:JasX/"+rootfolder+"/"+folder+"=force");
+                else 
+					llOwnerSay("@detachall:JasX/"+rootfolder+"/"+folder+"=force");
                 
                 list split = explode("/", folder);
-                string root = llToLower(llList2String(split,0));
-                string sub = llToLower(llList2String(split,1));
+                str root = llToLower(l2s(split,0));
+                str sub = llToLower(l2s(split,1));
                 list SF = SUBFOLDERS;
                 
-                integer rp = llListFindList(SF, [root]);
-                if(rp == -1)return;
-                if(sub == ""){
-                    if(rp == 0)equipped_slots_dressed = [on,on,on,on,on];
-                    else if(rp == 1)equipped_slots_underwear = [on,on,on,on,on];
-                    else if(rp == 2)equipped_slots_bits = [on,on,on,on,on];
-                    else return;
+                int rp = llListFindList(SF, [root]);
+                if( rp == -1 )
+					return;
+					
+                if( sub == "" ){
+				
+                    if( rp == 0 )
+						equipped_slots_dressed = [on,on,on,on,on];
+                    else if( rp == 1 )
+						equipped_slots_underwear = [on,on,on,on,on];
+                    else if( rp == 2 )
+						equipped_slots_bits = [on,on,on,on,on];
+                    else 
+						return;
+						
                 }else{
-                    integer sp = findSlotFolder(sub);
-                    if(rp == 0)equipped_slots_dressed = llListReplaceList(equipped_slots_dressed, [on], sp, sp);
-                    else if(rp == 1)equipped_slots_underwear = llListReplaceList(equipped_slots_underwear, [on], sp, sp);
-                    else if(rp == 2)equipped_slots_bits = llListReplaceList(equipped_slots_bits, [on], sp, sp);
-                    else return;
+				
+                    int sp = findSlotFolder(sub);
+                    if( rp == 0 )
+						equipped_slots_dressed = llListReplaceList(equipped_slots_dressed, [on], sp, sp);
+                    else if( rp == 1 )
+						equipped_slots_underwear = llListReplaceList(equipped_slots_underwear, [on], sp, sp);
+                    else if( rp == 2 )
+						equipped_slots_bits = llListReplaceList(equipped_slots_bits, [on], sp, sp);
+                    else 
+						return;
+						
                 }
                 onOutfitChanged();
             
             }
             
             // Reset password
-            else if(method == "resetpass"){
+            else if( method == "resetpass" )
                 Bridge$resetPass();
-            }
             
-            else if(method == "reset"){
-                qd("Resetting JasX HUD");
+            else if( method == "reset" ){
+                
+				qd("Resetting JasX HUD");
                 resetAll();
+				
             }
             
             // Changes sex
-            else if(method == "sex")
-                Bridge$setSex(llList2Integer(params, 0));
+            else if( method == "sex" )
+                Bridge$setSex(l2i(params, 0));
             
             // Force a settings update
-            else if(method == "settings")
+            else if( method == "settings" )
                 Bridge$outputStatus();
             
             // Changes species
-            else if(method == "species")
-                Bridge$setSpecies(llList2Integer(params, 0));
+            else if( method == "species" )
+                Bridge$setSpecies(l2i(params, 0));
                 
             // Changes outfit info    
-            else if(method == "getoutfitinfo")
+            else if( method == "getoutfitinfo" )
                 onOutfitChanged();
             
-            else if(method == "flist")
+            else if( method == "flist" )
                 Bridge$setFlist(l2s(params, 0));
             
             return;
         } 
         
-        if(chan != CHAN)return; 
+        if( chan != CHAN )
+			return; 
 		multiTimer(["INI"]);
-        if(~BFL&BFL_INIT){
+        if( ~BFL&BFL_INIT ){
 			
-            if((integer)message >= 2000000){
+            if( (int)message >= 2000000 ){
+			
                 BFL = BFL|BFL_INIT;
                 llOwnerSay("RLV successfully initialized");
-            }else if((integer)message){
-                llOwnerSay("WARNING: Your RLV seems to be outdated, please update.");
+				
             }
+			else if((int)message)
+                llOwnerSay("WARNING: Your RLV seems to be outdated, please update.");
+            
         }
     }
     

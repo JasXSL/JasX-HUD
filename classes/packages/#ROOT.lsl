@@ -147,7 +147,7 @@ default
     // Restart on change
     changed(integer change){
         if(change&CHANGED_OWNER){
-            llDialog(llGetOwner(), "Since the JasX HUD is now open source, please take a moment to verify that you received this HUD from secondlife:///app/agent/cf2625ff-b1e9-4478-8e6b-b954abde056b/about : Do not accept HUDs from people you don't trust.", [], 3267);
+            llDialog(llGetOwner(), "Since the JasX HUD is open source, please take a moment to verify that you received this HUD from secondlife:///app/agent/cf2625ff-b1e9-4478-8e6b-b954abde056b/about : Do not accept HUDs from people you don't trust.", [], 3267);
             TOOLTIP_STAGE = 0;
 			saveTooltipStage();
 			llResetScript();
@@ -235,13 +235,6 @@ default
     
     // This is the standard linkmessages
     #include "xobj_core/_LM.lsl" 
-    /*
-        Included in all these calls:
-        METHOD - (int)method  
-        PARAMS - (var)parameters 
-        SENDER_SCRIPT - (var)parameters
-        CB - The callback you specified when you sent a task 
-    */ 
     
     // Here's where you receive callbacks from running methods
 	if(method$isCallback){
