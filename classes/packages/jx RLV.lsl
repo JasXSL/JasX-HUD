@@ -284,7 +284,7 @@ default{
 				
 			else if( message == "Pass Reset" ){
 				
-				llOwnerSay("Genereting a new password");
+				llOwnerSay("Generating a new password");
 				Bridge$resetPass();
 				
 			}
