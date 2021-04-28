@@ -138,4 +138,8 @@ This object consists of the following data:
 | _link_req | obj | Info about an active link request |
 
 
+## Settings folder
 
+If you want to automatically change your species/gender settings when changing an outfit, you can put a folder underneath our outfit folder containing settings like `$SEX=<sex>` and/or `$SPEC=<species>`
+
+Example: `#RLV/JasX/ThiccFox/$SEX=6$SPEC=3` - Sets sex to female (vag+breasts = 2+4 = 6) and species to furry (3) when activating that outfit. See above for genital flags and species.
