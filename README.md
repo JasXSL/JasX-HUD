@@ -31,18 +31,14 @@ Will detach all items in #RLV/JasX/onAttach/BARE
 Will detach all items in #RLV/JasX/Lynx/Bits without attaching anything else.
 
 **Forcing an outfit info command:**
-- /1 jasx.getoutfitinfo
-    
-You can use this from a prim as long as you are the owner of the prim:
+- /1 jasx.getoutfitinfo<br />
+Will send the outfit info command (see below) on channel 2 to the prim that triggered the command.<br />
+This can be used on other avatars so long as they have opted into public HUD visbility.
 
-``llRegionSayTo(llGetOwner(), 1, "jasx.setfolder Underwear");``
-    
-
-
-### Settings (SET):
-    
-**GET**
-- /1 jasx.settings - Outputs settings on channel 2 (see below)
+**Forcing a settings command:**
+- /1 jasx.settings<br />
+Will send the settings command (see below) on channel 2 to the prim that triggered the command.
+This can be used on other avatars so long as they have opted into public HUD visbility.
 
 **Set sex**
 - /1 jasx.sex (int)sex - Sets your sex. Int is a bitwise value with the following constants
@@ -62,8 +58,11 @@ You can use this from a prim as long as you are the owner of the prim:
 #define SPECIE_OTHER 4
 </pre>    
     
+    
+    
 ## HUD SENT EVENTS (OUTPUTS)
-The HUD sends events on channel 2. They are in the form of "event:(obj)JSON"
+The HUD sends events on channel 2 in an llRegionSayTo to the owner. They are in the form of "event:(obj)JSON"
+Some events can be requested to other targets than the owner, but they must be requested by a command such as jasx.settings or jasx.getoutfitinfo.
 
 **Outfit info:**
 <pre>
@@ -96,8 +95,11 @@ gameattached:{
 <pre>
 settings:{
   "sex":(int)sex,
-  "id":(int)jasx_id,
-  "species":(int)species
+  "id":(int)jasx_id (owner only),
+  "species":(int)species,
+  "lfp":(bool)lfp_enabled,
+  "flist":(str)f_list_character,
+  "rp":(int)rp_style, 
 }
 </pre>
 
@@ -136,6 +138,7 @@ This object consists of the following data:
 | charkey | key | Character UUID |
 | email | str | Email address |
 | _link_req | obj | Info about an active link request |
+| hud_flags | int | HUD settings flags. See _core.lsl  |
 
 
 ## Settings folder
