@@ -26,7 +26,7 @@ Will attach all items in #RLV/JasX/onAttach/BARE
 - /1 jasx.onattach BARE, 0<br />
 Will detach all items in #RLV/JasX/onAttach/BARE
     
-**Toggling a single folder without affecting other folders.** Only use this for Bits, Dressed & Underwear
+**WARNING: REMOVED in 0.6** **Toggling a single folder without affecting other folders.** Only use this for Bits, Dressed & Underwear
 - /1 jasx.togglefolder Bits, 0<br />
 Will detach all items in #RLV/JasX/Lynx/Bits without attaching anything else.
 
