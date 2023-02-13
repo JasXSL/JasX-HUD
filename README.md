@@ -65,6 +65,15 @@ The HUD sends events on channel 2 in an llRegionSayTo to the owner. They are in 
 Some events can be requested to other targets than the owner, but they must be requested by a command such as jasx.settings or jasx.getoutfitinfo.
 
 **Outfit info:**
+0.6
+<pre>
+outfits:{
+    "root":(str)outfit,                            // Ex: Lynx
+    "strapon":(bool)strapon_on,                    // Ex: 1
+    "slots":(int)dressed_slots                     // 2-bit array, from right to left being head, arms, torso, crotch, boots. Ex: 0b00 00 00 01 10 = head dressed, arms underwear. You can use jasxSlotState(slots, slot) to get the current state. 0 = bits, 1 = underwear, 2 = nude
+}
+</pre>
+0.5 and older
 <pre>
 outfits:{
     "root":(str)root_folder,                            // Ex: Lynx
