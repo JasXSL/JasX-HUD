@@ -116,11 +116,13 @@ status(string text, integer type, float alpha){
 // Adds a response for the JasX server
 list OUT;
 addOut(string task, integer success, string data){
-    OUT+=llList2Json(JSON_OBJECT, [
+
+    OUT += llList2Json(JSON_OBJECT, [
         "task", task,
         "success", success,
         "data", data
     ]);
+	
 }
 
 default
@@ -131,11 +133,12 @@ default
     // Handle timer
     timer(){multiTimer([]);}
     
-    state_entry()
-    {
+    state_entry(){
+	
         // Start by getting the API key from the notecard
         status("Getting key...", TYPE_MED, 1);
         N_REQ = llGetNotecardLine("API_KEY", 0);
+		
     }
     
     // On inventory change, restart, since we might have changed the notecard
