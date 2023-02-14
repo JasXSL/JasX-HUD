@@ -2,7 +2,7 @@
 	
 	Folder structure:
 	#RLV/JasX
-		::Group:: A group combines multiple outfits into one. The only real purpose to a group is to let players with many outfits, to the point where RLV breaks, to combine them
+		::Group:: A group combines multiple outfits into one. The only real use for groups is for players with so many outfits that RLV breaks
 		<_group> - To mark a folder as a group, start the name of the folder with _
 			Avatar - Attached when the group is attached
 			Default (optional) - Default clothing outfit. If not specified, no sub outfit will be attached.
@@ -14,12 +14,12 @@
 					<datafolders...>
 				<datafolders...>
 			<datafolders...>
-		<outfit> - Name of an outfit
+		<outfit> - An outfit is the old and easiest behavior. One outfit, one avatar.
 			Avatar - Attached when the outfit is activated
 			<state> (Dressed/Underwear/Bits)
-					<slot> (Head/Arms/Torso/Crotch/Boots)
-						<datafolders...>
-					<datafolders..>
+				<slot> (Head/Arms/Torso/Crotch/Boots)
+					<datafolders...>
+				<datafolders..>
 			<datafolders...>
 			
 	Datafolders: Allows you to automate tasks such as setting gender and species when a folder is activated.
@@ -163,12 +163,8 @@ onEvt(string script, int evt, list data){
 setGroup( string g, integer setDefaultOutfit ){
 	
 	string pre = GROUP;
-	if( g ){
-		GROUP = g;
-	}
-	else{
-		recacheGroup();
-	}
+	GROUP = g;
+
 	
 	// If no group was set, an outfit will be root, in which case it needs to be removed
 	if( pre == "" )
@@ -204,12 +200,8 @@ setGroup( string g, integer setDefaultOutfit ){
 setOutfit( string n ){
 
     string pre = OUTFIT;
-    // If n is set, use that
-    if( n )
-        OUTFIT = n;
-    // Otherwise update from shared
-    else
-        recacheOutfit();
+    OUTFIT = n;
+
 	
 	// Store it in LSD in case bridge is down
 	setUserData(BSUD$outfit, OUTFIT);
@@ -679,7 +671,10 @@ default{
 				
 					split = explode("/", l2s(params, 0));
 					outfit = l2s(split, 1);
-					setGroup(l2s(split, 0), outfit == "");
+					str group = l2s(split, 0);
+					if( group == "_" )
+						group = "";
+					setGroup(group, outfit == "");
 					
 				}
 				
