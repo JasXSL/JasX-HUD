@@ -44,8 +44,8 @@
 // States
 list ALL_STATES = ["bits", "underwear", "dressed"]; // From lowest to highest
 // Slots including aliases
-list ALL_SLOTS = ["[\"head\"]", "[\"arms\"]", "[\"torso\",\"chest\"]", "[\"groin\",\"crotch\"]", "[\"boots\"]"];
-
+list ALL_SLOTS = ["head", "arms", "torso", "crotch", "boots"];
+list OLD_SLOTS = ["chest","groin"]; // Todo: Should warn if it detects these
 
 
 // Chat channels
@@ -80,9 +80,31 @@ list CACHE_FOLDERS;		// Stores a list of all folders directly under #RLV/JasX
 // Fetch outfit from db4
 #define recacheOutfit() \
 	OUTFIT = db4$fget(table$ud, BSUD$outfit)
+#define recacheGroup() \
+	GROUP = db4$fget(table$ud, BSUD$outfit_group)
+
+getDataFolders( list paths ){
+	
+	list cmds;
+	integer i;
+	for(; i < count(paths); ++i )
+		cmds += ("getinv:"+l2s(paths, i)+"="+(str)CHAN_DFOLDERS);
+	llOwnerSay("@"+llDumpList2String(cmds, ","));
+	
+}
+
+// Gets datafolder paths for all slots of group/outfit/state
+list getDataFoldersSlotsPaths( string g, string o, string s ){
+	
+	list paths; integer i;
+	for(; i < count(ALL_SLOTS); ++i )
+		paths += path(g, o, s, l2s(ALL_SLOTS, i));
+	return paths;
+	
+}
 
 // Outputs API message
-onOutfitChanged( key id ){
+outputOutfitState( key id ){
 	llRegionSayTo(id, 2, "outfits:"+llList2Json(JSON_OBJECT, [ \
         "root", OUTFIT, \
         "slots", SLOTS, \
@@ -90,25 +112,21 @@ onOutfitChanged( key id ){
     ]));
 }
 
-
-// Searches slot folders and returns an index. Useful because SLOTFOLDERS contains aliasing for RLV legacy issues.
-int findSlotFolder(string folder){
-	
-	folder = llToLower(folder);
-	
-	int i;
-	for( ; i < count(ALL_SLOTS); ++i ){
-		
-		list scan = llJson2List(l2s(ALL_SLOTS, i));
-		if( ~llListFindList(scan, (list)folder) )
-			return i;
-			
-	}
-	
-	return -1;
-
+// Takes a group, outfit, state, slot and generates a path
+string path( string g, string o, string st, string sl ){
+	list out;
+	// Group is optional
+	if( g )
+		out += g;
+	if( o )
+		out += o;				// Outfit is optional, though should always be used unless you're only setting a group
+	if( st != "" && o != "" )  // State relies on outfit being present
+		out += st;
+	if( sl != "" && st != "" && o != "" ) // Slot is optional but requires the above
+		out += sl;
+	return "JasX/"+llDumpList2String(out, "/");
 }
-    
+
 
 	
 onEvt(string script, int evt, list data){
@@ -117,18 +135,19 @@ onEvt(string script, int evt, list data){
         
 		// Bridge initialization
         if(evt == evt$SCRIPT_INIT){
-		
+			
+			BFL = BFL&~BFL_INIT;
 			multiTimer(["INI", 0, 2, FALSE]);
             llOwnerSay("@versionnum="+(string)CHAN_INI);
             recacheOutfit();
+			recacheGroup();
             recacheClothes();
-            onOutfitChanged(llGetOwner());
+            outputOutfitState(llGetOwner());
 			
         }
         // Bridge folder change
         else if(evt == BridgeEvt$DATA_CHANGED){
 		
-            setOutfit("");
 			outputStatus(llGetOwner());
 			
         }
@@ -140,6 +159,46 @@ onEvt(string script, int evt, list data){
 	
 }
 
+// setDefaultOutfit will also call setOutfit("default") - Can be turned off if you're setting bhoth group and outfit at the same time
+setGroup( string g, integer setDefaultOutfit ){
+	
+	string pre = GROUP;
+	if( g ){
+		GROUP = g;
+	}
+	else{
+		recacheGroup();
+	}
+	
+	// If no group was set, an outfit will be root, in which case it needs to be removed
+	if( pre == "" )
+		pre = OUTFIT;
+	// Detach on change. But allow attach always, provided a group is actually set
+	if( pre != GROUP )
+		llOwnerSay("@detachall:"+path(pre, "", "", "")+"=force");
+		
+	// Have this script store it in LSD in case bridge is down
+	setUserData(BSUD$outfit_group, GROUP);
+	
+	// If we're actually setting a group, and not a root outfit, we'll need to attach the root avatar and get datafolders
+	if( GROUP ){
+		
+		llOwnerSay("@attachallover:"+path(GROUP, "avatar", "", "")+"=force");
+		getDataFolders((list)path(GROUP, "", "", ""));	// The group only needs the group datafolders. setOutfit handles the rest
+		
+	}
+	if( setDefaultOutfit ){
+		
+		// If we've changed group, we already detached everything above, so by setting OUTFIT to default, it prevents setOutfit from detaching, only doing an attach call.
+		// Otherwise this is basically the same as "jasx.setoutfit default"
+		if( pre != GROUP )
+			OUTFIT = "default";
+		setOutfit("default");	// Setting to an existing outfit will force an attach call, but not a detach
+		
+	}
+	
+	
+}
 
 // Changes the active outfit
 setOutfit( string n ){
@@ -152,17 +211,30 @@ setOutfit( string n ){
     else
         recacheOutfit();
 	
+	// Store it in LSD in case bridge is down
+	setUserData(BSUD$outfit, OUTFIT);
+	
+	// Detach old unless it's the same
     if( pre != OUTFIT )
-		llOwnerSay("@detachall:JasX/"+pre+"=force,attachallover:JasX/"+OUTFIT+"/Avatar=force,attachallover:JasX/"+OUTFIT+"/Dressed=force");
-	llOwnerSay("@getinv:jasx/"+OUTFIT+"="+(string)CHAN_DFOLDERS);
-    onOutfitChanged(llGetOwner());
+		llOwnerSay("@detachall:"+path(GROUP, pre, "", "")+"=force");
+	// Force attach everything again
+	llOwnerSay("@attachallover:"+path(GROUP, OUTFIT, "avatar", "")+"=force,attachallover:"+path(GROUP, OUTFIT, "dressed", "")+"=force");
+	
+	// Any folder and subfolder involved in this attach needs to check data folders
+	getDataFolders((list)
+		path(GROUP, OUTFIT, "", "") +
+		path(GROUP, OUTFIT, "avatar", "") +
+		path(GROUP, OUTFIT, "dressed", "") +
+		getDataFoldersSlotsPaths(GROUP, OUTFIT, "dressed")
+	);
+	outputOutfitState(llGetOwner());
 	
 }
 
 setSlotsArray( string outfitState, string outfitSlot, integer on ){
 
 	integer stPos = llListFindList(ALL_STATES, (list)llToLower(outfitState));
-	integer slPos = findSlotFolder(outfitSlot);
+	integer slPos = llListFindList(ALL_SLOTS, (list)outfitSlot);
 	if( stPos == -1 || (slPos == -1 && outfitSlot != ""))
 		return;
 	
@@ -194,66 +266,65 @@ setSlotsArray( string outfitState, string outfitSlot, integer on ){
 
 // Sets an active state and slot on the current outfit
 // If slot is "" it toggles the whole state
-toggleClothes( string st, string slot ){
+setState( string st, string slot ){
     
 	st = llToLower(st);
     slot = llToLower(slot);
-	// Aliases
-    if( st == "fully clothed" )
-		st = "dressed";
-    if( slot == "chest" )
+	// Old projects may be trying to set the old folders. We'll have to convert them into the modern slots.
+	if( slot == "groin" )
+		slot = "crotch";
+	else if( slot == "chest" )
 		slot = "torso";
-	
-	list states = (list)st;			// Needs to be a list due to state aliases
-	int pos = findSlotFolder(slot);	// Convert the slot name to an index corresponding to SLOT_* const
-	if( ~pos )						// If found, convert it to a list of aliases
-		states = llJson2List(l2s(ALL_SLOTS, pos));
 		
-	// Batch into a single command that adds and removes
-    list on; list off; integer i;
-	for(; i < count(states); ++i ){
-	
-		string targState = l2s(states, i);
-		integer statePos = llListFindList(ALL_STATES, (list)targState);					// Turns state into an index in STATE_*
+	if( st == "fully clothed" )
+		st = "dressed";
 		
-		on += "attachallover:JasX/"+OUTFIT+"/"+targState+"/"+slot;						// if slot is empty, this attaches the whole state
-		on += "getinv:jasx/"+OUTFIT+"/"+targState+"/"+slot+"="+(str)CHAN_DFOLDERS; 		// Get datafolders
-		
-		// If slot is empty (we're changing an entire state), we'll also need to get datafolders from ALL slots of the state
-		if( slot == "" ){
-			
-			list subTasks;
-			integer a;
-			for(; a < count(ALL_SLOTS); ++a ){
-			
-				list aliases = llJson2List(l2s(ALL_SLOTS, a));
-				integer al;
-				for(; al < count(aliases); ++al )
-					subTasks += "getinv:jasx/"+OUTFIT+"/"+targState+"/"+l2s(aliases, al)+"="+(str)CHAN_DFOLDERS;
-				
-			}
-			llOwnerSay("@"+llDumpList2String(subTasks, ","));
-			
-		}
-		
-		// Detach all other states (and slots if applicable)
-		integer k;
-		for(; k < count(ALL_SLOTS); ++k ){
-		
-			string v = l2s(ALL_SLOTS, k);
-			if( v != targState )
-				off+="detachall:JasX/"+OUTFIT+"/"+v+"/"+slot;
-				
-		}
-		
+	int slotIdx = llListFindList(ALL_SLOTS, (list)slot);	// Convert the slot name to an index corresponding to SLOT_* const
+	integer stateIdx = llListFindList(ALL_STATES, (list)st);					// Turns state into an index in STATE_*
+	// Invalid state/slot
+	if( stateIdx == -1 ){
+		llOwnerSay("Trying to set invalid state: "+st);
+		return;
 	}
-    
+	if( slotIdx == -1 && slot != "" ){
+		llOwnerSay("Trying to set invalid slot: "+slot);
+		return;
+	}
+	
+	// Batch into a single command that adds and removes
+    list on; list off; 	
+	list dFolderPaths; // Paths to changed datafolders
+	
+	
+	on += "attachallover:"+path(GROUP, OUTFIT, st, slot);						// if slot is empty, this attaches the whole state
+	dFolderPaths += path(GROUP, OUTFIT, st, slot); 		// Datafolder of the particular slot that changed, or st if slot is empty
+	
+	// If slot is empty (we're changing an entire state), we'll also need to get datafolders from ALL slots of the state
+	if( slot == "" )
+		dFolderPaths += getDataFoldersSlotsPaths(GROUP, OUTFIT, st);
+	
+	// Figure out what to detach
+	integer k;
+	for(; k < count(ALL_STATES); ++k ){
+		
+		// We don't need to touch anything in the activated state. So start by filtering that out.
+		if( stateIdx != k ){
+			
+			string tState = l2s(ALL_STATES, k); // State we want to remove from
+			off += "detachall:"+path(GROUP, OUTFIT, tState, slot);	// If slot is empty, this will remove the whole state. Otherwise it removes the slot
+			
+		}
+			
+	}
+	
+		
 	setSlotsArray(st, slot, TRUE);
     
     //multiTimer([TIMER_REPEAT, on+"=force", 2, FALSE]);
     llOwnerSay("@"+implode("=force,", off)+"=force,"+implode("=force,", on)+"=force");
-    
-    onOutfitChanged(llGetOwner());
+    getDataFolders(dFolderPaths);
+	
+    outputOutfitState(llGetOwner());
 }
 
 openDialog(){
@@ -308,7 +379,7 @@ outputStatus( key target ){
 		pairs += (list)"id" + id;
 	
 	// Note: This should be designed to be parsed as a JSON array by adding [] to the ends
-	llSetObjectDesc((str)sex+","+(str)species+","+(str)flags);
+	llSetObjectDesc((str)sex+","+(str)species+","+(str)flags+","+(str)SLOTS);
 	
 	llRegionSayTo(
 		target, 
@@ -366,6 +437,7 @@ default{
         
         // Fetch from root if possible
         recacheOutfit();
+		recacheGroup();
 		
     }
     
@@ -400,7 +472,7 @@ default{
 				
 			}
 			else if( ~llListFindList(["Dressed","Underwear","Bits"], [message]) )
-				toggleClothes(message, "");
+				setState(message, "");
 			
 			else if( message == "Visibility" ){
 			
@@ -415,6 +487,7 @@ default{
 			
 		}
 		
+		// Todo: Need to cache groups
         // Inventory channel
         if( chan == CHAN_CACHE_ROOT ){
 		
@@ -552,9 +625,10 @@ default{
                 list struct = llParseString2List(l2s(params,0), ["/"], []);
                 str root = trim(l2s(struct,0));
                 str sub = trim(l2s(struct,1));
-                toggleClothes(root, sub);
+                setState(root, sub);
 				
             }
+			
 			// Owner only. Toggles a non built in subfolder
 			else if( method == "setcustom" && byOwner ){
 			
@@ -583,14 +657,14 @@ default{
                     llOwnerSay("@detachall:JasX/"+OUTFIT+"/Strapon=force");
 					
                 }
-                onOutfitChanged(llGetOwner());
+                outputOutfitState(llGetOwner());
 				
             }
             
             // Owner only. Set the root outfit
             else if( method == "setoutfit" && byOwner ){
 			
-				list split = llParseString2List(l2s(params, 0), [], ["{", "}", "\""]);
+				list split = llParseString2List(l2s(params, 0), [], ["{", "}", "\"", "&"]);
 				if( count(split) > 1 ){
 				
 					llDialog(llGetOwner(), "ERROR: Do not use special chars in outfit names", [], 3773);
@@ -598,9 +672,21 @@ default{
 					
 				}
 				
-                Bridge$setFolder(l2s(params,0));
-                setOutfit(l2s(params, 0));
-                onOutfitChanged(llGetOwner());
+				// Setting both outfit and group
+				// Starting with underscore means we're setting a group (and optionally an outfit
+				string outfit = l2s(split, 0);
+				if( llGetSubString(outfit, 0, 0) == "_" ){
+				
+					split = explode("/", l2s(params, 0));
+					outfit = l2s(split, 1);
+					setGroup(l2s(split, 0), outfit == "");
+					
+				}
+				
+				if( outfit )
+					setOutfit(outfit);
+				Bridge$setFolder(OUTFIT, GROUP); // Outfit first for legacy reasons (HTTP request expects group second)
+                outputOutfitState(llGetOwner());
 				
             }
             
@@ -646,7 +732,7 @@ default{
                 Bridge$setSpecies(l2i(params, 0));
             // Public. Get output info.
             else if( method == "getoutfitinfo" )
-                onOutfitChanged(id);
+                outputOutfitState(id);
             // Owner only. Update f-list character
             else if( method == "flist" && byOwner )
                 Bridge$setFlist(l2s(params, 0));
@@ -656,11 +742,10 @@ default{
         } 
         
         if( chan == CHAN_INI ){
-			 
-				
-			multiTimer(["INI"]);
+
 			if( ~BFL&BFL_INIT ){
-				
+			
+				multiTimer(["INI"]);
 				if( (int)message >= 2000000 ){
 				
 					BFL = BFL|BFL_INIT;
@@ -695,7 +780,7 @@ default{
 	
         if( METHOD == RLVMethod$setClothes ){
 		
-            toggleClothes(method_arg(0), method_arg(1));
+            setState(method_arg(0), method_arg(1));
 			
 		}
 			

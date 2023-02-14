@@ -1,4 +1,4 @@
-#define BridgeMethod$setFolder 1						// (str)folder - Sets active folder 
+#define BridgeMethod$setFolder 1						// (str)folder, group - Sets active folder and group
 #define BridgeMethod$createAccountFromText 2			// (str)name
 #define BridgeMethod$linkAccount 3						// (str)name
 #define BridgeMethod$updateClothes 4					// void - Updates socket with a list of RLV folders. Folders can be fetched from table$rlv$folders
@@ -19,7 +19,7 @@
 #define Bridge$linkAccount(name) runMethod((string)LINK_ROOT, "jx Bridge", BridgeMethod$linkAccount, [name], TNN)
 #define Bridge$resetPass() runMethod((string)LINK_ROOT, "jx Bridge", BridgeMethod$resetPass, [], TNN)
 #define Bridge$updateClothes() runMethod((string)LINK_ROOT, "jx Bridge", BridgeMethod$updateClothes, [], TNN)
-#define Bridge$setFolder(folder) runMethod((string)LINK_ROOT, "jx Bridge", BridgeMethod$setFolder, [folder], TNN)
+#define Bridge$setFolder(folder, group) runMethod((string)LINK_ROOT, "jx Bridge", BridgeMethod$setFolder, (list)(folder) + (group), TNN)
 #define Bridge$setSex(sex) runMethod((string)LINK_ROOT, "jx Bridge", BridgeMethod$setSex, [sex], TNN)
 #define Bridge$setSpecies(species) runMethod((string)LINK_ROOT, "jx Bridge", BridgeMethod$setSpecies, [species], TNN)
 #define Bridge$setFlist(character) runMethod((string)LINK_ROOT, "jx Bridge", BridgeMethod$setFlist, [character], TNN)
@@ -51,9 +51,11 @@
 #define BSUD$currenttitle "currenttitle"		// int - ID of active title
 #define BSUD$flist "flist"						// str - html escaped version of your f-list character
 #define BSUD$outfit "outfit"					// str - Current outfit worn
+#define BSUD$outfit_group "outfit_group"		// str - Outfit group (if used)
 #define BSUD$spname "spname"					// str - name of avatar type
 #define BSUD$roleplay_status "roleplay_status" 	// int - Type of roleplay you're looking for in LFP
 #define BSUD$hud_flags "hud_flags"				// int - HUD settings flags
+
 
 #define userData(field) db4$fget(table$ud, field)
 #define setUserData(field, val) db4$freplace(table$ud, field, (str)(val))
