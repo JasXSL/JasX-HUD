@@ -1,4 +1,8 @@
 /*
+	Todo:
+	- f-list
+	- accept a refresh RLV folders to DB call from bridge, when you click the refresh button on the website
+
 	
 	Folder structure:
 	#RLV/JasX
@@ -51,8 +55,10 @@ list OLD_SLOTS = ["chest","groin"]; // Todo: Should warn if it detects these
 // Chat channels
 int CHAN_INI;				// Fetches version
 int CHAN_CACHE_ROOT;		// Builds an index of the root folders
+int CHAN_CACHE_GROUP;		// Builds an index of a group
 int CHAN_DIAG;				// Handles user dialogs
 int CHAN_DFOLDERS;			// Fetches data folders
+
 
 // Active group / outfit
 str GROUP;
@@ -72,16 +78,52 @@ int BFL;
 // Strapon currently worn
 #define BFL_STRAPON 0x2
 
-list CACHE_FOLDERS;		// Stores a list of all folders directly under #RLV/JasX
+// Performs a refresh of the JasX HUD RLV folder cache
+#define snapshotRoot() \
+	{cGROUPS = []; llOwnerSay("@getinv:jasx="+(string)CHAN_CACHE_ROOT);}
+#define snapshotGroup(group) \
+	llOwnerSay("@getinv:JasX/"+(str)(group)+"="+(string)CHAN_CACHE_GROUP)
 
-// Schedules a recache of outfits to send to the DB
-#define recacheClothes() \
-	llOwnerSay("@getinv:jasx="+(string)CHAN_CACHE_ROOT); multiTimer(["OT", 0, 2, FALSE])
 // Fetch outfit from db4
 #define recacheOutfit() \
-	OUTFIT = db4$fget(table$ud, BSUD$outfit)
+	OUTFIT = userData(BSUD$outfit)
 #define recacheGroup() \
-	GROUP = db4$fget(table$ud, BSUD$outfit_group)
+	GROUP = userData(BSUD$outfit_group)
+
+// Returns "" on fail
+setSpecies( str species ){
+	
+	species = llStringTrim(species, STRING_TRIM);
+	if( species == "" ){
+		llOwnerSay("Unable to update species: Name empty.");
+		return;
+	}
+	string test = llToUpper(species);
+	if( llStringLength(test) > 20 ){
+		llOwnerSay("Unable to set species: Name can be max 20 characters.");
+		return;
+	}
+	
+	integer i;
+	for(; i < llStringLength(test); ++i ){
+		integer ord = llOrd(test, i);
+		integer accept = 
+			ord == 32 || // Space
+			(ord >= 48 && ord <= 57) || // Numbers
+			(ord >= 65 && ord <= 90)	// Upper case
+		;
+		if( !accept ){
+			llOwnerSay("Unable to set species: Name can only contain alphanumeric characters and spaces.");
+			return;
+		}
+	}
+	
+	
+	setUserData(BSUD$species, species);
+	Bridge$setSpecies(species);
+	outputStatus(llGetOwner());
+	
+}
 
 getDataFolders( list paths ){
 	
@@ -127,35 +169,56 @@ string path( string g, string o, string st, string sl ){
 	return "JasX/"+llDumpList2String(out, "/");
 }
 
-
+list cGROUPS;	// Groups found under RLV/JasX to cache
+cacheNextGroup(){
+	
+	// No more folders to cache
+	if( !count(cGROUPS) )
+		return;
+	snapshotGroup(l2s(cGROUPS, 0));
+	
+}
 	
 onEvt(string script, int evt, list data){
 
     if(script == "jx Bridge"){
         
 		// Bridge initialization
-        if(evt == evt$SCRIPT_INIT){
+        if( evt == evt$SCRIPT_INIT ){
 			
 			BFL = BFL&~BFL_INIT;
 			multiTimer(["INI", 0, 2, FALSE]);
+			iniListen = llListen(CHAN_INI, "", llGetOwner(), "");       	// RLV initialization
             llOwnerSay("@versionnum="+(string)CHAN_INI);
-            recacheOutfit();
+			recacheOutfit();
 			recacheGroup();
-            recacheClothes();
             outputOutfitState(llGetOwner());
 			
         }
         // Bridge folder change
         else if(evt == BridgeEvt$DATA_CHANGED){
 		
+			integer ofChange = OUTFIT != userData(BSUD$outfit);
+			integer grChange = GROUP != userData(BSUD$outfit_group);
+			if( grChange )
+				setGroup(userData(BSUD$outfit_group), !ofChange);
+			if( ofChange )
+				setOutfit(userData(BSUD$outfit));
+				
 			outputStatus(llGetOwner());
 			
         }
         // Send outfits to websocket
-        else if(evt == BridgeEvt$SOCKET_REFRESH)
-            recacheClothes();
-       
+        else if( evt == BridgeEvt$OUTFIT_REFRESH ){
+            snapshotRoot();
+		}
+		// Folders directly under #RLV/JasX have been set. Now cache the groups
+		else if( evt == BridgeEvt$RLV_GROUPS_SET ){
+			cacheNextGroup();
+		}
+	   
     }
+	
 	
 }
 
@@ -370,8 +433,11 @@ outputStatus( key target ){
 	if( llGetOwnerKey(target) == llGetOwner() )
 		pairs += (list)"id" + id;
 	
+	string out = mkarr((list)
+		sex + species + flags + SLOTS
+	);
 	// Note: This should be designed to be parsed as a JSON array by adding [] to the ends
-	llSetObjectDesc((str)sex+","+(str)species+","+(str)flags+","+(str)SLOTS);
+	llSetObjectDesc(llGetSubString(out, 1, -2));
 	
 	llRegionSayTo(
 		target, 
@@ -381,13 +447,12 @@ outputStatus( key target ){
 	
 }
 
-timerEvent(string id, string data){
-	if(id == "OT")
-		Bridge$updateClothes();
-	else if(id == "INI"){
+timerEvent( string id, string data ){
+
+	if( id == "INI" ){
 		
 		int d = (int)data;
-		if(d > 5)
+		if( d > 5 )
 			llDialog(llGetOwner(), 
 				"\nError: RLV Not found! To enable RLV, please follow these steps:\n"+
 				"1. Use a supported third party viewer, such as [https://www.firestormviewer.org/downloads/ Firestorm Viewer].\n"+
@@ -402,6 +467,7 @@ timerEvent(string id, string data){
 		}
 		
 	}
+	
 }
 
 integer iniListen;
@@ -415,6 +481,7 @@ default{
         CHAN_CACHE_ROOT = c+1;
 		CHAN_DIAG = c+2;
 		CHAN_DFOLDERS = c+3;
+		CHAN_CACHE_GROUP = c+4;
 		
         
         // These are channels for the user
@@ -422,14 +489,15 @@ default{
         llListen(CLOTHING_CHAN, "", "", ""); 
         
         // These are channels for RLV
-        iniListen = llListen(CHAN_INI, "", llGetOwner(), "");       	// RLV initialization
         llListen(CHAN_CACHE_ROOT, "", llGetOwner(), "");   	// Folder data fetch
         llListen(CHAN_DIAG, "", llGetOwner(), "");   	// Dialog popup
         llListen(CHAN_DFOLDERS, "", llGetOwner(), "");   	// Dialog popup
+        llListen(CHAN_CACHE_GROUP, "", llGetOwner(), "");   	// Dialog popup
         
         // Fetch from root if possible
         recacheOutfit();
 		recacheGroup();
+		outputStatus(llGetOwner());
 		
     }
     
@@ -479,31 +547,47 @@ default{
 			
 		}
 		
-		// Todo: Need to cache groups
-        // Inventory channel
-        if( chan == CHAN_CACHE_ROOT ){
+		// Caches the root folders (folders directly under #RLV/JasX)
+        if( chan == CHAN_CACHE_ROOT || chan == CHAN_CACHE_GROUP ){
 		
             // Folders fetched
-            CACHE_FOLDERS = llCSV2List(message);
-            
-            // Cycle folders and remove invalid options
-            int i;
-            for( ; i<count(CACHE_FOLDERS); ++i ){
+            list folders = llCSV2List(message);
+            list valid;
 			
-                string val = llStringTrim(l2s(CACHE_FOLDERS, i), STRING_TRIM);
-                if( llToLower(val) == "onattach" || val == "" ){
+            int i;
+            for( ; i<count(folders); ++i ){
+			
+                string val = llStringTrim(l2s(folders, i), STRING_TRIM);
 				
-                    CACHE_FOLDERS = llDeleteSubList(CACHE_FOLDERS, i, i);
-                    i--;
-					
-                }
-				
+				list split = llParseString2List(val, [], [
+					// Invalid characters
+					"{", "}", "&", "[", "]"
+				]);
+				if( count(split) > 1 )
+					llOwnerSay("Error: Outfit "+val+" was ignored. Do not use special characters in your outfits.");
+				// Additional filters
+                else if( 
+					llToLower(val) != "onattach" && 	// Ignore onAttach
+					llToLower(val) != "avatar" &&		// Ignore avatar folder (needed for group)
+					val != "" && 						// Ignore empty
+					llGetSubString(val, 0, 0) != "\"" 	// Ignore datafolder
+				){
+					valid += val;
+					if( llGetSubString(val, 0, 0) == RLVConst$GROUP_INDICATOR )
+						cGROUPS += val;
+				}
             }
 			
-            multiTimer(["OT"]);
-			db4$freplace(table$rlv, table$rlv$folders, mkarr(CACHE_FOLDERS));
-			
-            Bridge$updateClothes();
+			if( chan == CHAN_CACHE_ROOT ){
+				db4$freplace(table$rlv, table$rlv$folders, mkarr(valid));
+				Bridge$updateClothes();
+			}
+			else{
+				string group = l2s(cGROUPS, 0);
+				cGROUPS = llDeleteSubList(cGROUPS, 0, 0);
+				Bridge$updateGroup(group, valid);
+			}
+            
 			return;
 			
         }
@@ -511,9 +595,6 @@ default{
 		// Handles vars from folder names to set things like species and sex
 		if( chan == CHAN_DFOLDERS ){
 		
-			int sex = -1;
-			int spec = -1;
-			
 			string esc = llChar(10);
 			list split = explode(",",implode(esc, explode("\\,", message)));
 						
@@ -562,32 +643,26 @@ default{
 						
 						string ty = l2s(tasks, i);
 						string val = implode("+", explode(esc, l2s(tasks, i+1)));
-						// Todo: Run htmlspecialcahrs?
-						
-						if( ty == "sex" )
-							sex = (int)val;
-						else if( ty == "spec" || ty == "species" )
-							spec = (int)val;
+
+						if( ty == "sex" ){
+							int sex = (int)val&GENITALS_ALL;
+							Bridge$setSex(sex);
+							setUserData(BSUD$sex, sex);
+						}
+						else if( ty == "spec" || ty == "species" ){
+							setSpecies(val);
+						}
 						else if( ty == "say" )
 							llRegionSay((int)j(val,0), j(val, 1));
+						
+						// Todo: flist
 						
 					}
 					
 				}
 								
 			}
-			
-			
-			
-			if( sex > -1 ){
-			
-				sex = sex&GENITALS_ALL;
-				Bridge$setSex(sex);
-				
-			}
-			
-			if( spec > -1 && spec < 4 )
-				Bridge$setSpecies(spec);
+
 		
 		}
         
@@ -653,26 +728,26 @@ default{
 				
             }
             
+			// Reload oufits
+			else if( method == "outfits" && byOwner ){
+				
+				llOwnerSay("Recaching outfits...");
+				snapshotRoot();
+			
+			}
+			
             // Owner only. Set the root outfit
             else if( method == "setoutfit" && byOwner ){
 			
-				list split = llParseString2List(l2s(params, 0), [], ["{", "}", "\"", "&"]);
-				if( count(split) > 1 ){
-				
-					llDialog(llGetOwner(), "ERROR: Do not use special chars in outfit names", [], 3773);
-					return;
-					
-				}
-				
 				// Setting both outfit and group
 				// Starting with underscore means we're setting a group (and optionally an outfit
-				string outfit = l2s(split, 0);
-				if( llGetSubString(outfit, 0, 0) == "_" ){
+				string outfit = llStringTrim(l2s(params, 0), STRING_TRIM);
+				if( llGetSubString(outfit, 0, 0) == RLVConst$GROUP_INDICATOR || llGetSubString(outfit, 0, 0) == "/" ){
 				
 					split = explode("/", l2s(params, 0));
 					outfit = l2s(split, 1);
 					str group = l2s(split, 0);
-					if( group == "_" )
+					if( group == RLVConst$GROUP_INDICATOR )
 						group = "";
 					setGroup(group, outfit == "");
 					
@@ -723,8 +798,9 @@ default{
 				outputStatus(id);
 				
             // Owner only. Changes species
-            else if( method == "species" && byOwner )
-                Bridge$setSpecies(l2i(params, 0));
+            else if( method == "species" && byOwner ){
+                setSpecies(l2s(params, 0));
+			}
             // Public. Get output info.
             else if( method == "getoutfitinfo" )
                 outputOutfitState(id);
@@ -777,12 +853,6 @@ default{
 		
             setState(method_arg(0), method_arg(1));
 			
-		}
-			
-        else if( METHOD == RLVMethod$recacheFolders ){
-		
-            recacheClothes();
-		
 		}
 		else if( METHOD == RLVMethod$dialog ){
 			

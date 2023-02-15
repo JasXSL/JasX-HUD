@@ -1,10 +1,10 @@
 #define BridgeMethod$setFolder 1						// (str)folder, group - Sets active folder and group
 #define BridgeMethod$createAccountFromText 2			// (str)name
 #define BridgeMethod$linkAccount 3						// (str)name
-#define BridgeMethod$updateClothes 4					// void - Updates socket with a list of RLV folders. Folders can be fetched from table$rlv$folders
+#define BridgeMethod$updateClothes 4					// void - Updates the rlv_outfits
 #define BridgeMethod$resetPass 5						// void
 #define BridgeMethod$login 6							// void - Fetches a new login token and updates the prim media 
-
+#define BridgeMethod$updateGroup 7						// (str)group, (arr)folders - Updates rlv_outfits groups sub-outfits
 
 #define BridgeMethod$setSex 11							// (int)sex
 #define BridgeMethod$setSpecies 12						// (int)species 
@@ -19,6 +19,7 @@
 #define Bridge$linkAccount(name) runMethod((string)LINK_ROOT, "jx Bridge", BridgeMethod$linkAccount, [name], TNN)
 #define Bridge$resetPass() runMethod((string)LINK_ROOT, "jx Bridge", BridgeMethod$resetPass, [], TNN)
 #define Bridge$updateClothes() runMethod((string)LINK_ROOT, "jx Bridge", BridgeMethod$updateClothes, [], TNN)
+#define Bridge$updateGroup(group, folders) runMethod((string)LINK_ROOT, "jx Bridge", BridgeMethod$updateGroup, [group, mkarr((list)folders)], TNN)
 #define Bridge$setFolder(folder, group) runMethod((string)LINK_ROOT, "jx Bridge", BridgeMethod$setFolder, (list)(folder) + (group), TNN)
 #define Bridge$setSex(sex) runMethod((string)LINK_ROOT, "jx Bridge", BridgeMethod$setSex, [sex], TNN)
 #define Bridge$setSpecies(species) runMethod((string)LINK_ROOT, "jx Bridge", BridgeMethod$setSpecies, [species], TNN)
@@ -33,6 +34,8 @@
 #define BridgeEvt$SOCKET_REFRESH 1	// void - Requests subscribts to send socket data
 #define BridgeEvt$DATA_CHANGED 2	// void - Userdata has changed
 #define BridgeEvt$lfpPlayers 3		// (int)nrPlayers - Nr players currently looking for group
+#define BridgeEvt$OUTFIT_REFRESH 4	// void - Requests jx RLV to recache the RLV folders.
+#define BridgeEvt$RLV_GROUPS_SET 5	// void - RLV groups have been set. Now is a good time to recache group subfolders.
 
 // Keys stored in table$ud
 #define BSUD$id "id"							// int - JasX USER ID

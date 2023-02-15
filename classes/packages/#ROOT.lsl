@@ -165,8 +165,7 @@ advanceTooltip(){
 	
 }
 
-default
-{
+default{
     
     // Restart on change
     changed( integer change ){
@@ -189,7 +188,6 @@ default
     }
     
 	timer(){multiTimer([]);}
-	
 	
     state_entry(){
 	
@@ -270,7 +268,7 @@ default
 			advanceTooltip();
 		
     }
-    
+	
     // This is the standard linkmessages
     #include "xobj_core/_LM.lsl" 
     // End link message code
