@@ -96,11 +96,10 @@ Ch 0 or /1:
 -- Buttons --
 	Log In - Browser Login
 	Dressed/Underwear/Bits - Set clothing
-	Pass Reset - Reset password
 	Visibility - Anyone can see your HUD
 ";
 	
-	list buttons = ["Dressed", "Underwear", "Bits", "Visibility", "Log In", "Pass Reset"];
+	list buttons = ["Dressed", "Underwear", "Bits", "Visibility", "Log In", "Pass Reset", "Changelog"];
 	
 	llDialog(llGetOwner(), text, buttons, CHAN_DIAG);
 }
@@ -282,6 +281,8 @@ default{
 				Bridge$resetPass();
 				
 			}
+			else if( message == "Changelog" )
+				llGiveInventory(llGetOwner(), "Changelog");
 			else if( ~llListFindList(["Dressed","Underwear","Bits"], [message]) )
 				RLV$setClothes(message);
 				
