@@ -26,6 +26,12 @@
 #define VAGINA 2
 #define TITS 4
 
+// Aliases
+#define GENITALS_PENIS PENIS
+#define GENITALS_VAGINA VAGINA
+#define GENITALS_BREASTS TITS
+
+
 #define GENITALS_ALL (PENIS|VAGINA|TITS)
 
 #define HUDFLAG_PINGABLE 0x1		// Allows the getSettings and getOutfitInfo commands to be used by anyone

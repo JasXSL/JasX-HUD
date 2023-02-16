@@ -13,6 +13,9 @@ integer P_BROWSER;
 integer P_CONF;
 integer P_LFP;
 integer P_TOOLTIP;
+
+integer CHAN_DIAG;				// Handles user dialogs
+
 vector BROWSER_POS = <0.516400, 0.064820, 0.633541>;
 
 key TOUCH_HOLDER;
@@ -68,6 +71,38 @@ setLFP(){
 	
 	llSetLinkPrimitiveParamsFast(P_LFP, out);
 	
+}
+
+openDialog(){
+
+	str vis = "PRIVATE";
+	if( (int)userData(BSUD$hud_flags) & HUDFLAG_PINGABLE )
+		vis = "PUBLIC";
+		
+	string text = "
+["+vis+"]
+
+-- LINKS --
+	[http:\/\/jasx.org/#hud/ JasX.org]
+	[https:\/\/goo.gl/AkC1Ug API/Bugs]
+	[https:\/\/bit.ly/3YCncGD Video Tutorial]
+	[https:\/\/bit.ly/3aeYAdU Outfit Help]
+
+-- COMMANDS --
+Ch 0 or /1:
+	jasx.setoutfit <name> - Set outfit
+	jasx.setclothes dressed/underwear/bits - Outfit state
+
+-- Buttons --
+	Log In - Browser Login
+	Dressed/Underwear/Bits - Set clothing
+	Pass Reset - Reset password
+	Visibility - Anyone can see your HUD
+";
+	
+	list buttons = ["Dressed", "Underwear", "Bits", "Visibility", "Log In", "Pass Reset"];
+	
+	llDialog(llGetOwner(), text, buttons, CHAN_DIAG);
 }
 
 onEvt( string script, integer evt, list data ){
@@ -225,10 +260,46 @@ default{
 		resetAllOthers();
 		TOOLTIP_STAGE = (int)db4$fget(table$root, table$root$tooltipStage);
 		advanceTooltip();
-			
+		
+		CHAN_DIAG = llCeil(llFrand(0xFFFFFFF));
+		llListen(CHAN_DIAG, "", llGetOwner(), "");
+		
 		memLim(1.5);
 		
     }
+	
+	listen( int chan, string name, key id, string message ){
+		
+		if( chan == CHAN_DIAG ){
+			
+			
+			if( message == "Log In" )
+				Bridge$login();
+				
+			else if( message == "Pass Reset" ){
+				
+				llOwnerSay("Generating a new password");
+				Bridge$resetPass();
+				
+			}
+			else if( ~llListFindList(["Dressed","Underwear","Bits"], [message]) )
+				RLV$setClothes(message);
+				
+			else if( message == "Visibility" ){
+				
+				int hudFlags = (int)userData(BSUD$hud_flags);
+				if( hudFlags & HUDFLAG_PINGABLE )
+					hudFlags = hudFlags &~HUDFLAG_PINGABLE;
+				else
+					hudFlags = hudFlags | HUDFLAG_PINGABLE;
+				Bridge$setHudFlags(hudFlags);
+				
+			}
+				
+			
+		}
+	
+	}
     
     touch_start( integer total ){
         detOwnerCheck
@@ -245,7 +316,7 @@ default{
             toggleBrowser(FALSE);
         
 		if( ln == P_CONF )
-			RLV$dialog();
+			openDialog();
 			
 		raiseEvent(evt$TOUCH_START, llList2Json(JSON_ARRAY, [llDetectedLinkNumber(0), llDetectedKey(0)]));
 		

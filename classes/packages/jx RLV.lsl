@@ -7,7 +7,7 @@
 	Folder structure:
 	#RLV/JasX
 		::Group:: A group combines multiple outfits into one. The only real use for groups is for players with so many outfits that RLV breaks
-		<_group> - To mark a folder as a group, start the name of the folder with _
+		<+group> - To mark a folder as a group, start the name of the folder with +
 			Avatar - Attached when the group is attached
 			Default (optional) - Default clothing outfit. If not specified, no sub outfit will be attached.
 			<outfit> - Name of avatar outfit
@@ -56,7 +56,6 @@ list OLD_SLOTS = ["chest","groin"]; // Todo: Should warn if it detects these
 int CHAN_INI;				// Fetches version
 int CHAN_CACHE_ROOT;		// Builds an index of the root folders
 int CHAN_CACHE_GROUP;		// Builds an index of a group
-int CHAN_DIAG;				// Handles user dialogs
 int CHAN_DFOLDERS;			// Fetches data folders
 
 
@@ -80,9 +79,9 @@ int BFL;
 
 // Performs a refresh of the JasX HUD RLV folder cache
 #define snapshotRoot() \
-	{cGROUPS = []; llOwnerSay("@getinv:jasx="+(string)CHAN_CACHE_ROOT);}
+	{cGROUPS = []; cRootListen = llListen(CHAN_CACHE_ROOT, "", llGetOwner(), ""); llOwnerSay("@getinv:jasx="+(string)CHAN_CACHE_ROOT);}
 #define snapshotGroup(group) \
-	llOwnerSay("@getinv:JasX/"+(str)(group)+"="+(string)CHAN_CACHE_GROUP)
+	{cGroupListen = llListen(CHAN_CACHE_GROUP, "", llGetOwner(), ""); llOwnerSay("@getinv:JasX/"+(str)(group)+"="+(string)CHAN_CACHE_GROUP);}
 
 // Fetch outfit from db4
 #define recacheOutfit() \
@@ -173,8 +172,10 @@ list cGROUPS;	// Groups found under RLV/JasX to cache
 cacheNextGroup(){
 	
 	// No more folders to cache
-	if( !count(cGROUPS) )
+	if( !count(cGROUPS) ){
+		llListenRemove(cGroupListen);
 		return;
+	}
 	snapshotGroup(l2s(cGROUPS, 0));
 	
 }
@@ -382,37 +383,6 @@ setState( string st, string slot ){
     outputOutfitState(llGetOwner());
 }
 
-openDialog(){
-
-	str vis = "PRIVATE";
-	if( (int)userData(BSUD$hud_flags) & HUDFLAG_PINGABLE )
-		vis = "PUBLIC";
-		
-	string text = "
-[Visibility] "+vis+"
-
--- LINKS --
-	[http:\/\/jasx.org/#hud/ JasX.org]
-	[https:\/\/goo.gl/AkC1Ug API/Bugs]
-	[https:\/\/bit.ly/3aeYAdU Outfit Help] By Drau
-
--- COMMANDS -- 
-Either /0 or /1:
-	jasx.setoutfit <name> - Set outfit
-	jasx.setclothes dressed/underwear/bits - Outfit state
-	
--- Buttons --
-	Log In - Browser Login
-	Dressed/Underwear/Bits - Set clothing
-	Pass Reset - Reset password
-	Visibility - Others can ping your HUD to see sex/avatar status
-";
-	
-	list buttons = ["Dressed", "Underwear", "Bits", "Visibility", "Log In", "Pass Reset"];
-	
-	llDialog(llGetOwner(), text, buttons, CHAN_DIAG);
-}
-
 outputStatus( key target ){
 
 	str species = userData(BSUD$species);
@@ -447,6 +417,35 @@ outputStatus( key target ){
 	
 }
 
+// Sets sex by a label or integer
+setSex( string sex ){
+	
+	integer out = (int)sex;
+	sex = llToLower(sex);
+	
+	// Preset labels when setting sex by text
+	list labels = [
+		"female", GENITALS_VAGINA|GENITALS_BREASTS,
+		"male", GENITALS_PENIS,
+		"herm", GENITALS_ALL,
+		"cuntboy", GENITALS_VAGINA,
+		"c-boy", GENITALS_VAGINA,
+		"andromorph", GENITALS_VAGINA,
+		"muffin man", GENITALS_VAGINA,
+		"shemale", GENITALS_BREASTS|GENITALS_PENIS,
+		"futa", GENITALS_BREASTS|GENITALS_PENIS,
+		"dickgirl", GENITALS_BREASTS|GENITALS_PENIS
+	];
+	int pos = llListFindList(labels, (list)sex);
+	if( ~pos )
+		out = l2i(labels, pos+1);
+	
+	out = out&GENITALS_ALL;
+	Bridge$setSex(out);
+	setUserData(BSUD$sex, out);
+
+}
+
 timerEvent( string id, string data ){
 
 	if( id == "INI" ){
@@ -467,10 +466,15 @@ timerEvent( string id, string data ){
 		}
 		
 	}
+	else if( id == "GR" ){
+		cacheNextGroup();
+	}
 	
 }
 
 integer iniListen;
+integer cRootListen;
+integer cGroupListen;
 
 default{
 
@@ -479,7 +483,6 @@ default{
 		int c = llCeil(llFrand(0xFFFFFF));
         CHAN_INI = c;
         CHAN_CACHE_ROOT = c+1;
-		CHAN_DIAG = c+2;
 		CHAN_DFOLDERS = c+3;
 		CHAN_CACHE_GROUP = c+4;
 		
@@ -488,17 +491,15 @@ default{
         llListen(0, "", llGetOwner(), "");
         llListen(CLOTHING_CHAN, "", "", ""); 
         
-        // These are channels for RLV
-        llListen(CHAN_CACHE_ROOT, "", llGetOwner(), "");   	// Folder data fetch
-        llListen(CHAN_DIAG, "", llGetOwner(), "");   	// Dialog popup
-        llListen(CHAN_DFOLDERS, "", llGetOwner(), "");   	// Dialog popup
-        llListen(CHAN_CACHE_GROUP, "", llGetOwner(), "");   	// Dialog popup
+        // These are listeners for code
+        llListen(CHAN_DFOLDERS, "", llGetOwner(), "");
         
         // Fetch from root if possible
         recacheOutfit();
 		recacheGroup();
 		outputStatus(llGetOwner());
 		
+				
     }
     
 	timer(){ multiTimer([]); }
@@ -519,33 +520,6 @@ default{
 			)
 		)return;
 		
-		        
-		if(chan == CHAN_DIAG){
-			
-			if( message == "Log In" )
-				Bridge$login();
-				
-			else if( message == "Pass Reset" ){
-				
-				llOwnerSay("Generating a new password");
-				Bridge$resetPass();
-				
-			}
-			else if( ~llListFindList(["Dressed","Underwear","Bits"], [message]) )
-				setState(message, "");
-			
-			else if( message == "Visibility" ){
-			
-				if( hudFlags & HUDFLAG_PINGABLE )
-					hudFlags = hudFlags &~HUDFLAG_PINGABLE;
-				else
-					hudFlags = hudFlags | HUDFLAG_PINGABLE;
-				Bridge$setHudFlags(hudFlags);
-				
-			}
-				
-			
-		}
 		
 		// Caches the root folders (folders directly under #RLV/JasX)
         if( chan == CHAN_CACHE_ROOT || chan == CHAN_CACHE_GROUP ){
@@ -573,7 +547,7 @@ default{
 					llGetSubString(val, 0, 0) != "\"" 	// Ignore datafolder
 				){
 					valid += val;
-					if( llGetSubString(val, 0, 0) == RLVConst$GROUP_INDICATOR )
+					if( llGetSubString(val, 0, 0) == RLVConst$GROUP_INDICATOR && chan == CHAN_CACHE_ROOT )
 						cGROUPS += val;
 				}
             }
@@ -581,11 +555,13 @@ default{
 			if( chan == CHAN_CACHE_ROOT ){
 				db4$freplace(table$rlv, table$rlv$folders, mkarr(valid));
 				Bridge$updateClothes();
+				llListenRemove(cRootListen);
 			}
 			else{
 				string group = l2s(cGROUPS, 0);
 				cGROUPS = llDeleteSubList(cGROUPS, 0, 0);
 				Bridge$updateGroup(group, valid);
+				multiTimer(["GR", 0, 0.5, FALSE]);	// Max 2 groups per sec to prevent overflow
 			}
             
 			return;
@@ -644,18 +620,15 @@ default{
 						string ty = l2s(tasks, i);
 						string val = implode("+", explode(esc, l2s(tasks, i+1)));
 
-						if( ty == "sex" ){
-							int sex = (int)val&GENITALS_ALL;
-							Bridge$setSex(sex);
-							setUserData(BSUD$sex, sex);
-						}
+						if( ty == "sex" )
+							setSex(val);
 						else if( ty == "spec" || ty == "species" ){
 							setSpecies(val);
 						}
 						else if( ty == "say" )
 							llRegionSay((int)j(val,0), j(val, 1));
-						
-						// Todo: flist
+						else if( ty == "flist" )
+							Bridge$setFlist(val);
 						
 					}
 					
@@ -784,14 +757,15 @@ default{
             // Owner only. Reset the HUD.
             else if( method == "reset" && byOwner ){
                 
-				qd("Resetting JasX HUD");
+				qd("Resetting JasX HUD to factory default");
+				llLinksetDataReset();
                 resetAll();
 				
             }
             
             // Owner only. Changes sex
             else if( method == "sex" && byOwner )
-                Bridge$setSex(l2i(params, 0));
+                setSex(l2s(params, 0));
             
             // Public. Force a settings update
             else if( method == "settings" )			
@@ -836,27 +810,14 @@ default{
     
 // This is the standard linkmessages
     #include "xobj_core/_LM.lsl" 
-    /*
-        Included in all these calls:
-        METHOD - (int)method  
-        PARAMS - (var)parameters 
-        SENDER_SCRIPT - (var)parameters
-        CB - The callback you specified when you sent a task 
-    */ 
-    
     if( method$isCallback )
 		return;
     
 	if( method$internal ){
 	
         if( METHOD == RLVMethod$setClothes ){
-		
+			
             setState(method_arg(0), method_arg(1));
-			
-		}
-		else if( METHOD == RLVMethod$dialog ){
-			
-			openDialog();
 			
 		}
 		
