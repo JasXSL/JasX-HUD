@@ -199,12 +199,15 @@ onEvt(string script, int evt, list data){
         // Bridge folder change
         else if(evt == BridgeEvt$DATA_CHANGED){
 		
-			integer ofChange = OUTFIT != userData(BSUD$outfit);
-			integer grChange = GROUP != userData(BSUD$outfit_group);
+			string outfit = userData(BSUD$outfit);
+			string group = userData(BSUD$outfit_group);
+			
+			integer ofChange = OUTFIT != outfit;
+			integer grChange = GROUP != group;
 			if( grChange )
-				setGroup(userData(BSUD$outfit_group), !ofChange);
+				setGroup(group, !ofChange);
 			if( ofChange )
-				setOutfit(userData(BSUD$outfit));
+				setOutfit(outfit);
 				
 			outputStatus(llGetOwner());
 			
@@ -262,6 +265,9 @@ setGroup( string g, integer setDefaultOutfit ){
 
 // Changes the active outfit
 setOutfit( string n ){
+
+	if( n == "" )
+		return;
 
     string pre = OUTFIT;
     OUTFIT = n;

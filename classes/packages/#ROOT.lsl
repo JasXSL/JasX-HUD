@@ -99,7 +99,7 @@ Ch 0 or /1:
 	Visibility - Anyone can see your HUD
 ";
 	
-	list buttons = ["Dressed", "Underwear", "Bits", "Visibility", "Log In", "Pass Reset", "Changelog"];
+	list buttons = ["Dressed", "Underwear", "Bits", "Visibility", "Log In", "Pass Reset", "Changelog", "Tutorial"];
 	
 	llDialog(llGetOwner(), text, buttons, CHAN_DIAG);
 }
@@ -296,7 +296,11 @@ default{
 				Bridge$setHudFlags(hudFlags);
 				
 			}
-				
+			else if( message == "Tutorial" ){
+				TOOLTIP_STAGE = 0;
+				saveTooltipStage();
+				advanceTooltip();
+			}
 			
 		}
 	
