@@ -694,13 +694,13 @@ default{
                 if( on ){
                     
 					BFL = BFL|BFL_STRAPON;
-                    llOwnerSay("@attachallover:JasX/"+OUTFIT+"/Strapon=force");
+                    llOwnerSay("@attachallover:"+path(GROUP, OUTFIT, "strapon", "")+"=force");
 					
                 }
                 else{
 				
                     BFL = BFL&~BFL_STRAPON;
-                    llOwnerSay("@detachall:JasX/"+OUTFIT+"/Strapon=force");
+					llOwnerSay("@detachall:"+path(GROUP, OUTFIT, "strapon", "")+"=force");
 					
                 }
                 outputOutfitState(llGetOwner());
