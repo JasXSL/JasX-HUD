@@ -1,0 +1,3 @@
+[submodule "sTag"]
+	path = sTag
+	url = https://github.com/JasXSL/sTag

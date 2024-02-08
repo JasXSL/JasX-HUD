@@ -8,6 +8,7 @@
 #include "./classes/jx RLV.lsl"
 #include "./classes/jx API.lsl"
 
+#include "./stag/stag.lsl"
 
 #define jasxSlotState(slots, slot) ((slots>>(slot*2))&3)
 
