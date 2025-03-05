@@ -1,9 +1,4 @@
-/*
-	Todo:
-	- f-list
-	- accept a refresh RLV folders to DB call from bridge, when you click the refresh button on the website
-
-	
+/*	
 	Folder structure:
 	#RLV/JasX
 		::Group:: A group combines multiple outfits into one. The only real use for groups is for players with so many outfits that RLV breaks
@@ -89,31 +84,37 @@ int BFL;
 #define recacheGroup() \
 	GROUP = userData(BSUD$outfit_group)
 
-// Returns "" on fail
-setSpecies( str species ){
+// Returns true if changed
+bool setSpecies( str species ){
 	
 	species = llStringTrim(species, STRING_TRIM);
+	if( userData(BSUD$species) == species )
+		return FALSE;
+		
 	if( species == "" ){
 		llOwnerSay("Unable to update species: Name empty.");
-		return;
+		return FALSE;
 	}
 	string test = llToUpper(species);
 	if( llStringLength(test) > 20 ){
 		llOwnerSay("Unable to set species: Name can be max 20 characters.");
-		return;
+		return FALSE;
 	}
+	
+	
 	
 	integer i;
 	for(; i < llStringLength(test); ++i ){
 		integer ord = llOrd(test, i);
 		integer accept = 
 			ord == 32 || // Space
+			ord == 45 || // Dash
 			(ord >= 48 && ord <= 57) || // Numbers
 			(ord >= 65 && ord <= 90)	// Upper case
 		;
 		if( !accept ){
-			llOwnerSay("Unable to set species: Name can only contain alphanumeric characters and spaces.");
-			return;
+			llOwnerSay("Unable to set species: Name can only contain alphanumeric characters, spaces, and dashes.");
+			return FALSE;
 		}
 	}
 	
@@ -121,6 +122,7 @@ setSpecies( str species ){
 	setUserData(BSUD$species, species);
 	Bridge$setSpecies(species);
 	outputStatus(llGetOwner());
+	return TRUE;
 	
 }
 
@@ -259,6 +261,10 @@ setGroup( string g, integer setDefaultOutfit ){
 		setOutfit("default");	// Setting to an existing outfit will force an attach call, but not a detach
 		
 	}
+	// Attempt some extra stag parsing after changing outfit
+	multiTimer(["SP0",0,5, FALSE]);
+	multiTimer(["SP1",0,10, FALSE]);
+	multiTimer(["SP2",0,20, FALSE]);
 	
 	
 }
@@ -446,10 +452,32 @@ setSex( string sex ){
 	if( ~pos )
 		out = l2i(labels, pos+1);
 	
-	out = out&GENITALS_ALL;
-	Bridge$setSex(out);
-	setUserData(BSUD$sex, out);
+	setGenitals(out);
 
+}
+
+// Returns true on success 
+bool setFlist( string flist ){
+	
+	if( flist == userData(BSUD$flist) )
+		return FALSE;
+	setUserData(BSUD$flist, flist);	
+	Bridge$setFlist(flist);
+	return TRUE;
+	
+}
+
+// Returns true on success
+bool setGenitals( integer sex ){
+	
+	if( (int)userData(BSUD$sex) == sex )
+		return FALSE;
+		
+	sex = sex&GENITALS_ALL;
+	Bridge$setSex(sex);
+	setUserData(BSUD$sex, sex);
+	return TRUE;
+	
 }
 
 timerEvent( string id, string data ){
@@ -475,12 +503,52 @@ timerEvent( string id, string data ){
 	else if( id == "GR" ){
 		cacheNextGroup();
 	}
+	else if( llGetSubString(id, 0, 1) == "SP" )
+		stagParse();
 	
 }
 
 integer iniListen;
 integer cRootListen;
 integer cGroupListen;
+
+stagParse(){
+	
+	string flist;
+	string species;
+	integer sex;
+	
+	list all = sTagAv( llGetOwner(), "", [], 0);
+	integer i = count(all);
+	while( i-- ){
+		
+		list val = explode("_", l2s(all, i));
+		string label = l2s(val, 0);
+		val = llDeleteSubList(val, 0, 0);
+		if( label == "spec" )
+			species = implode("_", val);
+		else if( label == "bits" ){
+			string sub = llGetSubString(l2s(val, 0), 0, 0);
+			sex = sex|((sub=="p")*GENITALS_PENIS);
+			sex = sex|((sub=="v")*GENITALS_VAGINA);
+			sex = sex|((sub=="b")*GENITALS_BREASTS);				
+		}
+		else if( label == "flist" )
+			flist = implode("_", val);
+		
+	}
+	
+	integer ch;
+	if( species )
+		ch += setSpecies(species);
+	if( sex )
+		ch += setGenitals(sex);
+	if( flist )
+		ch += setFlist(flist);
+	if( ch )
+		outputStatus(llGetOwner());
+	
+}
 
 default{
 
@@ -504,8 +572,9 @@ default{
         recacheOutfit();
 		recacheGroup();
 		outputStatus(llGetOwner());
+		multiTimer(["SP", 0, 30, TRUE]);
+		stagParse();
 		
-				
     }
     
 	timer(){ multiTimer([]); }
@@ -634,7 +703,7 @@ default{
 						else if( ty == "say" )
 							llRegionSay((int)j(val,0), j(val, 1));
 						else if( ty == "flist" )
-							Bridge$setFlist(val);
+							setFlist(val);
 						
 					}
 					
@@ -763,7 +832,7 @@ default{
             // Owner only. Reset the HUD.
             else if( method == "reset" && byOwner ){
                 
-				qd("Resetting JasX HUD to factory default");
+				llOwnerSay("Resetting JasX HUD to factory default");
 				llLinksetDataReset();
                 resetAll();
 				
@@ -786,7 +855,7 @@ default{
                 outputOutfitState(id);
             // Owner only. Update f-list character
             else if( method == "flist" && byOwner )
-                Bridge$setFlist(l2s(params, 0));
+                setFlist(l2s(params, 0));
             
             return;
 			
@@ -818,16 +887,14 @@ default{
     #include "xobj_core/_LM.lsl" 
     if( method$isCallback )
 		return;
-    
-	if( method$internal ){
+    if( !method$byOwner )
+		return;
+
+	if( METHOD == RLVMethod$setClothes )
+		setState(method_arg(0), method_arg(1));
+	else if( METHOD == RLVMethod$refreshStag )
+		stagParse();
 	
-        if( METHOD == RLVMethod$setClothes ){
-			
-            setState(method_arg(0), method_arg(1));
-			
-		}
-		
-    }
     
 // End link message code
     #define LM_BOTTOM  

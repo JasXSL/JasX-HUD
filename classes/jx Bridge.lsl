@@ -46,13 +46,13 @@
 #define BSUD$fullname "fullname"				// str - URL version of the user
 #define BSUD$bitflags "bitflags"				// int - Settings
 #define BSUD$last_lfp "last_lfp"				// int - Unix timestamp of the last LFP ping
-#define BSUD$sex "sex"							// int - Bitflags for sex, 1 = penis, 2 = vag, 4 = breasts
-#define BSUD$species "species"					// int - Avatar type
+#define BSUD$sex "sex"							// int - Bitflags for sex, 1 = penis, 2 = vag, 4 = breasts - Managed by jx RLV
+#define BSUD$species "species"					// int - Avatar type - Managed by jx RLV
 #define BSUD$lfp_for "lfp_for"					// array - Games you're looking for players for
 #define BSUD$games_owned "games_owned"			// array - ids of games you own
 #define BSUD$charname "charname"				// str - SL name
 #define BSUD$currenttitle "currenttitle"		// int - ID of active title
-#define BSUD$flist "flist"						// str - html escaped version of your f-list character
+#define BSUD$flist "flist"						// str - html escaped version of your f-list character - Managed by jx RLV
 #define BSUD$outfit "outfit"					// str - Current outfit worn
 #define BSUD$outfit_group "outfit_group"		// str - Outfit group (if used)
 #define BSUD$spname "spname"					// str - name of avatar type

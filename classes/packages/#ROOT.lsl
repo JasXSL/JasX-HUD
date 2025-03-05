@@ -15,6 +15,7 @@ integer P_LFP;
 integer P_TOOLTIP;
 
 integer CHAN_DIAG;				// Handles user dialogs
+int TOOLTIP_STAGE;
 
 vector BROWSER_POS = <0.516400, 0.064820, 0.633541>;
 
@@ -22,7 +23,7 @@ key TOUCH_HOLDER;
 integer TOUCH_BUTTON;
 integer TOUCH_SEC;
 
-int TOOLTIP_STAGE;
+
 
 toggleBrowser( integer show ){
 
@@ -73,35 +74,82 @@ setLFP(){
 	
 }
 
-openDialog(){
+#define MENU_DEFAULT 0
+#define MENU_HELP 1
+#define MENU_TOOLS 2
 
-	str vis = "PRIVATE";
-	if( (int)userData(BSUD$hud_flags) & HUDFLAG_PINGABLE )
-		vis = "PUBLIC";
+openDialog( integer menu ){
+
+	string text; list buttons;
+
+	if( menu == MENU_DEFAULT ){
+		str vis = "⭕ private ⭕";
+		if( (int)userData(BSUD$hud_flags) & HUDFLAG_PINGABLE )
+			vis = "🔴 PUBLIC 🔴";
+		list genitals;
+		integer gf = (int)userData(BSUD$sex);
+		string species = trim(userData(BSUD$species));
+		if( species == "" )
+			species = "<UNDEFINED>";
+		if( gf & GENITALS_PENIS )
+			genitals += "P";
+		if( gf & GENITALS_VAGINA )
+			genitals += "V";
+		if( gf & GENITALS_BREASTS )
+			genitals += "B";
+		if( genitals == [] )
+			genitals = (list)"<UNDEFINED>";
 		
-	string text = "
-["+vis+"]
+		text = "
+Visibility: "+vis+"
 
--- LINKS --
-	[http:\/\/jasx.org/#hud/ JasX.org]
-	[https:\/\/goo.gl/AkC1Ug API/Bugs]
-	[https:\/\/bit.ly/3YCncGD Video Tutorial]
-	[https:\/\/bit.ly/3aeYAdU Outfit Help]
+[http:\/\/jasx.org/#hud/ 🌐 JasX.org] | [https:\/\/goo.gl/AkC1Ug 🐙 GitHub] | [secondlife:\/\/\/app\/group\/6ff2300b-8199-518b-c5be-5be5d864fe1f\/about 🖼️ SL Group]
 
--- COMMANDS --
-Ch 0 or /1:
-	jasx.setoutfit <name> - Set outfit
-	jasx.setclothes dressed/underwear/bits - Outfit state
-
--- Buttons --
-	Log In - Browser Login
-	Dressed/Underwear/Bits - Set clothing
-	Visibility - Anyone can see your HUD
+⚧️ Genitals: "+llDumpList2String(genitals, ", ")+"
+🦊 Species: "+species+"
 ";
+		buttons = [
+			"🔴 Visibility", "💳 Log In", "🔑 Reset Pass", "❓ Help", "🛠️ Tools"
+		];
+
+	}
+	else if( menu == MENU_HELP ){
+		text = "
+Help Resources:
+- [https:\/\/dangly.parts\/w\/1BJx5mB8w5UGetDrFmecVp 📽️  Outfit Video Tutorial]
+- [https:\/\/drauslittlewebsite.com\/jasx-folders 👚  Outfit Text Tutorial]
+- [https:\/\/github.com\/JasXSL\/JasX-HUD\/blob\/master\/README.md ⌨️ Chat Commands]
+- [https:\/\/github.com\/JasXSL\/JasX-HUD\/issues 🐛  Bug Reports ]
+- [https:\/\/jasx.org\/blog\/category\/jasx\/jasx-hud 📝  Patch Notes]
+";
+		buttons = (list)"⬅️ Back" + "ℹ️ HUD Tutorial";	
+	}
+	else if( menu == MENU_TOOLS ){
+		text = "
+-- Buttons
+- 🔄 Tag Refresh: Refreshes sTag tags. This automatically happens twice per minute.
+- 🖊️ Tag Builder: Helps you setup sTag tags for your avatar.
+- 📋 List Tags: Outputs primary & secondary tags in chat.
+- 🧺 Dressed/Underwear/Bits: Changes your outfit state.
+";
+		buttons = [
+			"⬅️ Back", "🔄 Tag Refresh", "📋 List Tags", "🖊️ Tag Builder", "👔 Dressed", "🩲 Underwear", "🍑 Bits"
+		];
 	
-	list buttons = ["Dressed", "Underwear", "Bits", "Visibility", "Log In", "Pass Reset", "Changelog", "Tutorial"];
+	}
 	
+	
+	
+	
+	/*
+	"Tag Refresh"
+		"Dressed", 
+		"Underwear", 
+		"Bits", 
+		"Changelog"
+	*/
 	llDialog(llGetOwner(), text, buttons, CHAN_DIAG);
+	
 }
 
 onEvt( string script, integer evt, list data ){
@@ -158,6 +206,8 @@ onEvt( string script, integer evt, list data ){
 }
 #define saveTooltipStage() db4$freplace(table$root, table$root$tooltipStage, TOOLTIP_STAGE)
 
+
+string atcCache; // MD5 hash of tags
 // Timer to handle double clicks and click hold
 timerEvent( string id, string data ){
 
@@ -173,6 +223,13 @@ timerEvent( string id, string data ){
 			advanceTooltip();
 			
 		}
+		
+	}
+	else if( id == "TAGS" ){
+		
+		string atc; // Start by doing a quick scan of attachments
+		
+		
 		
 	}
 	
@@ -196,6 +253,15 @@ advanceTooltip(){
 	llSetLinkPrimitiveParams(P_TOOLTIP, [PRIM_POSITION, l2v(stages, TOOLTIP_STAGE*2), PRIM_TEXT, l2s(stages, TOOLTIP_STAGE*2+1), <.5,.75,1>, 1]);
 	saveTooltipStage();
 	++TOOLTIP_STAGE;
+	
+}
+
+output( string label, list data ){
+	
+	string text = llToUpper(label) + ": " + l2s(data, 0);
+	if( count(data) > 1 )
+		text += "[" + llList2CSV(data) + "]";
+	llOwnerSay(text);
 	
 }
 
@@ -264,7 +330,7 @@ default{
 		llListen(CHAN_DIAG, "", llGetOwner(), "");
 		
 		memLim(1.5);
-		
+				
     }
 	
 	listen( int chan, string name, key id, string message ){
@@ -272,21 +338,21 @@ default{
 		if( chan == CHAN_DIAG ){
 			
 			
-			if( message == "Log In" )
+			// Main
+			if( message == "💳 Log In" )
 				Bridge$login();
 				
-			else if( message == "Pass Reset" ){
+			else if( message == "🔑 Reset Pass" ){
 				
 				llOwnerSay("Generating a new password");
 				Bridge$resetPass();
 				
 			}
-			else if( message == "Changelog" )
-				llGiveInventory(llGetOwner(), "Changelog");
-			else if( ~llListFindList(["Dressed","Underwear","Bits"], [message]) )
-				RLV$setClothes(message);
-				
-			else if( message == "Visibility" ){
+			else if( message == "❓ Help" )
+				openDialog(MENU_HELP);
+			else if( message == "🛠️ Tools" )
+				openDialog(MENU_TOOLS);
+			else if( message == "🔴 Visibility" ){
 				
 				int hudFlags = (int)userData(BSUD$hud_flags);
 				if( hudFlags & HUDFLAG_PINGABLE )
@@ -296,12 +362,65 @@ default{
 				Bridge$setHudFlags(hudFlags);
 				
 			}
-			else if( message == "Tutorial" ){
+			
+			
+			// Tools
+			else if( ~llListFindList(["👔 Dressed", "🩲 Underwear", "🍑 Bits"], [message]) ){
+				RLV$setClothes(llGetSubString(message, 2, -1));
+				openDialog(MENU_TOOLS);
+			}
+			else if( message == "🔄 Tag Refresh" ){
+				llOwnerSay("Refreshing sTag tags");
+				RLV$refreshStag();
+			}
+			else if( message == "🖊️ Tag Builder" ){
+				llLoadURL(llGetOwner(), "Site tool for helping setup sTag tags on your avatars.", "https://jasxsl.github.io/sTag/");
+			}
+			else if( message == "📋 List Tags" ){
+				llOwnerSay(":: DETECTED TAGS ::");
+				key t = llGetOwner();
+				output("Species", (list)sTag$species(t));
+				output("Species Group", (list)sTag$subspecies(t));
+				output("Sex", (list)sTag$sex(t));
+				output("Outfit JSON", (list)sTag$outfit2json(t));
+				
+				
+				output("Pronouns", (list)sTag$pronouns(t));
+				output("Tail Size (0-5)", (list)sTag$sizeToInt(sTag$tail(t)));
+				output("Hair Size (0-5)", (list)sTag$sizeToInt(sTag$hair(t)));
+				output("Body Coating", sTag$body_coat(t));
+				output("Body Type", (list)sTag$body_type(t));
+				output("Body Fat", (list)sTag$body_fat(t));
+				output("Body Muscle", (list)sTag$body_muscle(t));
+				
+				
+				llOwnerSay(":: DETECTED GENITAL SIZE ::");
+				integer bits = sTag$getBitsPacked(t);
+				output("-- Penis (0-5)", (list)sTag$penisSize(bits));
+				output("-- Vagina (0-5)", (list)sTag$vagina(bits));
+				output("-- Breasts (0-5)", (list)sTag$breastsSize(bits));
+				output("-- Rear (0-5)", (list)sTag$rearSize(bits));
+				output("-- Testicles (0-5)", (list)sTag$testiclesSize(bits));
+				
+				
+			
+			
+				openDialog(MENU_TOOLS);
+			}
+			
+			// Help
+			else if( message == "ℹ️ HUD Tutorial" ){
 				TOOLTIP_STAGE = 0;
 				saveTooltipStage();
 				advanceTooltip();
 			}
 			
+			
+			// Help/Tools
+			else if( message == "⬅️ Back" ){
+				openDialog(MENU_DEFAULT);
+			}
+
 		}
 	
 	}
@@ -321,7 +440,7 @@ default{
             toggleBrowser(FALSE);
         
 		if( ln == P_CONF )
-			openDialog();
+			openDialog(MENU_DEFAULT);
 			
 		raiseEvent(evt$TOUCH_START, llList2Json(JSON_ARRAY, [llDetectedLinkNumber(0), llDetectedKey(0)]));
 		
