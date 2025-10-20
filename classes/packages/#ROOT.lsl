@@ -116,7 +116,7 @@ Visibility: "+vis+"
 	else if( menu == MENU_HELP ){
 		text = "
 Help Resources:
-- [https:\/\/dangly.parts\/w\/1BJx5mB8w5UGetDrFmecVp 📽️  Outfit Video Tutorial]
+- [https:\/\/dangly.parts\/w\/p\/kiwboKqXRLMuyh8cnLVPCm 📽️  JasX Video Tutorials]
 - [https:\/\/drauslittlewebsite.com\/jasx-folders 👚  Outfit Text Tutorial]
 - [https:\/\/github.com\/JasXSL\/JasX-HUD\/blob\/master\/README.md ⌨️ Chat Commands]
 - [https:\/\/github.com\/JasXSL\/JasX-HUD\/issues 🐛  Bug Reports ]

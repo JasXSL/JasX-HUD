@@ -207,9 +207,9 @@ onEvt(string script, int evt, list data){
 			integer ofChange = OUTFIT != outfit;
 			integer grChange = GROUP != group;
 			if( grChange )
-				setGroup(group, !ofChange);
+				runCommand(setGroup(group, !ofChange));
 			if( ofChange )
-				setOutfit(outfit);
+				runCommand(setOutfit(outfit));
 				
 			outputStatus(llGetOwner());
 			
@@ -229,18 +229,19 @@ onEvt(string script, int evt, list data){
 }
 
 // setDefaultOutfit will also call setOutfit("default") - Can be turned off if you're setting bhoth group and outfit at the same time
-setGroup( string g, integer setDefaultOutfit ){
+list setGroup( string g, integer setDefaultOutfit ){
 	
 	string pre = GROUP;
 	GROUP = g;
 
-	
 	// If no group was set, an outfit will be root, in which case it needs to be removed
 	if( pre == "" )
 		pre = OUTFIT;
+	
+	list out;
 	// Detach on change. But allow attach always, provided a group is actually set
 	if( pre != GROUP )
-		llOwnerSay("@detachall:"+path(pre, "", "", "")+"=force");
+		out += (list)("detachall:"+path(pre, "", "", "")+"=force");
 		
 	// Have this script store it in LSD in case bridge is down
 	setUserData(BSUD$outfit_group, GROUP);
@@ -248,7 +249,7 @@ setGroup( string g, integer setDefaultOutfit ){
 	// If we're actually setting a group, and not a root outfit, we'll need to attach the root avatar and get datafolders
 	if( GROUP ){
 		
-		llOwnerSay("@attachallover:"+path(GROUP, "avatar", "", "")+"=force");
+		out += (list)("attachallover:"+path(GROUP, "avatar", "", "")+"=force");
 		getDataFolders((list)path(GROUP, "", "", ""));	// The group only needs the group datafolders. setOutfit handles the rest
 		
 	}
@@ -258,35 +259,36 @@ setGroup( string g, integer setDefaultOutfit ){
 		// Otherwise this is basically the same as "jasx.setoutfit default"
 		if( pre != GROUP )
 			OUTFIT = "default";
-		setOutfit("default");	// Setting to an existing outfit will force an attach call, but not a detach
+		out += setOutfit("default");	// Setting to an existing outfit will force an attach call, but not a detach
 		
 	}
 	// Attempt some extra stag parsing after changing outfit
 	multiTimer(["SP0",0,5, FALSE]);
 	multiTimer(["SP1",0,10, FALSE]);
 	multiTimer(["SP2",0,20, FALSE]);
-	
+	return out;
 	
 }
 
 // Changes the active outfit
-setOutfit( string n ){
+list setOutfit( string n ){
 
 	if( n == "" )
-		return;
+		return [];
 
     string pre = OUTFIT;
     OUTFIT = n;
-
+	list out;
 	
 	// Store it in LSD in case bridge is down
 	setUserData(BSUD$outfit, OUTFIT);
 	
 	// Detach old unless it's the same
     if( pre != OUTFIT )
-		llOwnerSay("@detachall:"+path(GROUP, pre, "", "")+"=force");
+		out += (list)("detachall:"+path(GROUP, pre, "", "")+"=force");
 	// Force attach everything again
-	llOwnerSay("@attachallover:"+path(GROUP, OUTFIT, "avatar", "")+"=force,attachallover:"+path(GROUP, OUTFIT, "dressed", "")+"=force");
+	multiTimer([]);
+	out += (list)("attachallover:"+path(GROUP, OUTFIT, "avatar", "")+"=force,attachallover:"+path(GROUP, OUTFIT, "dressed", "")+"=force");
 	
 	// Any folder and subfolder involved in this attach needs to check data folders
 	getDataFolders((list)
@@ -296,6 +298,8 @@ setOutfit( string n ){
 		getDataFoldersSlotsPaths(GROUP, OUTFIT, "dressed")
 	);
 	outputOutfitState(llGetOwner());
+	
+	return out;
 	
 }
 
@@ -550,6 +554,12 @@ stagParse(){
 	
 }
 
+runCommand( list subCommands ){
+	if( subCommands == [] )
+		return;
+	llOwnerSay("@"+llDumpList2String(subCommands, ","));
+}
+
 default{
 
     state_entry(){
@@ -785,7 +795,7 @@ default{
 			}
 			
             // Owner only. Set the root outfit
-            else if( method == "setoutfit" && byOwner ){
+            else if( (method == "setoutfit" || method == "setoufit" || method == "setoutift") && byOwner ){
 			
 				// Setting both outfit and group
 				// Starting with underscore means we're setting a group (and optionally an outfit
@@ -797,12 +807,12 @@ default{
 					str group = l2s(split, 0);
 					if( group == RLVConst$GROUP_INDICATOR )
 						group = "";
-					setGroup(group, outfit == "");
+					runCommand(setGroup(group, outfit == ""));
 					
 				}
 				
 				if( outfit )
-					setOutfit(outfit);
+					runCommand(setOutfit(outfit));
 				Bridge$setFolder(OUTFIT, GROUP); // Outfit first for legacy reasons (HTTP request expects group second)
                 outputOutfitState(llGetOwner());
 				
